@@ -1,0 +1,41 @@
+{
+    "asset": "e66d6b88e8e3c524a90a0bad9591565b",
+    "fileName": "019f4c8d-573c-7ef6-9e2f-1454b1778f93.png",
+    "prompt": "",
+    "negativePrompt": "",
+    "model": "",
+    "modelName": "",
+    "customSeed": -1,
+    "w3CTraceId": "",
+    "feedback": 0,
+    "refinementMode": "Recolor",
+    "pixelateTargetSize": 0,
+    "pixelateKeepImageSize": false,
+    "pixelatePixelBlockSize": 0,
+    "pixelatePixelGridSize": 0,
+    "pixelateMode": 0,
+    "pixelateOutlineThickness": 0,
+    "doodles": {
+        "m_Items": [
+            {
+                "doodleReferenceType": 5,
+                "doodle": [],
+                "label": "Palette",
+                "strength": 1.0,
+                "invertStrength": false,
+                "assetReferenceGuid": "b34733610f84398439a8b497b7e81a9d",
+                "unlabeledIndex": -1
+            }
+        ]
+    },
+    "upscaleFactor": 0,
+    "dimensions": {
+        "width": 0,
+        "height": 0
+    },
+    "spriteSheet": false,
+    "duration": 5.0,
+    "dynamicParams": {
+        "serializedData": []
+    }
+}

@@ -1,0 +1,41 @@
+{
+    "asset": "ea0112575d55263438d235d965ba5bc6",
+    "fileName": "019f4c50-a14c-76b5-b671-b97a150d3ad8.png",
+    "prompt": "A Unity game asset sprite sheet. White background. STRICT 3x2 grid (3 columns, 2 rows = 6 equal cells). The grid should fill the entire image with size 1024x1024 with no extra border or padding outside the cells. Contains the following individual game assets, one per cell left-to-right top-to-bottom, styled to exactly match the art style of the provided reference image (InstanceID 85118): 1. Core Player Body (Vibrant red triangular arrowhead), 2. Energy Shield (Glowing blue V-shaped barrier), 3. Projectile Spear (White and silver with feathered tail), 4. Top Rail Attachment (Black T-shaped structural piece), 5. Rear Thrusters (Stylized orange-red flame burst), 6. Pickup Crate (Small dark cube with a glowing icon).\n\nRules:\n- ONE asset per grid cell, centered with ample padding\n- Assets must be scaled to fit within their cell — do NOT overflow into grid lines\n- Grid lines: clean, solid black, clearly visible but not overly thick\n- White background inside every cell\n- NO text, labels, captions, names, or annotations anywhere in the image\n- Assets must look like they belong in the original scene (match style exactly)\n\nNegative prompt: text, labels, captions, watermark, signature, blurry, low quality, distorted, overlapping assets, cropped assets, crossing lines, uneven grid lines, non-uniform cells, merged cells, thin grid lines, graph paper style, multiple items in one cell, grouped items, any letters or words.",
+    "negativePrompt": "",
+    "model": "gemini-3.0-pro",
+    "modelName": "Gemini 3.0 Pro",
+    "customSeed": -1,
+    "w3CTraceId": "",
+    "feedback": 0,
+    "refinementMode": "Generation",
+    "pixelateTargetSize": 0,
+    "pixelateKeepImageSize": false,
+    "pixelatePixelBlockSize": 0,
+    "pixelatePixelGridSize": 0,
+    "pixelateMode": 0,
+    "pixelateOutlineThickness": 0,
+    "doodles": {
+        "m_Items": [
+            {
+                "doodleReferenceType": 7,
+                "doodle": [],
+                "label": "Image",
+                "strength": 0.25,
+                "invertStrength": false,
+                "assetReferenceGuid": "b34733610f84398439a8b497b7e81a9d",
+                "unlabeledIndex": -1
+            }
+        ]
+    },
+    "upscaleFactor": 0,
+    "dimensions": {
+        "width": 1024,
+        "height": 1024
+    },
+    "spriteSheet": false,
+    "duration": 0.0,
+    "dynamicParams": {
+        "serializedData": []
+    }
+}

@@ -1,0 +1,41 @@
+{
+    "asset": "e66d6b88e8e3c524a90a0bad9591565b",
+    "fileName": "019f4c8a-a3fa-7318-ad28-49401902239b.png",
+    "prompt": "Recolor this red triangular character body to a cool cyan (#16213E) and electric blue (#0F3460) color scheme. The primary color should be cool cyan with electric blue highlights. Maintain the minimalist tactical aesthetic and the sharp triangular silhouette.",
+    "negativePrompt": "",
+    "model": "gpt-image-1-5",
+    "modelName": "GPT Image 1.5",
+    "customSeed": -1,
+    "w3CTraceId": "",
+    "feedback": 0,
+    "refinementMode": "Generation",
+    "pixelateTargetSize": 0,
+    "pixelateKeepImageSize": false,
+    "pixelatePixelBlockSize": 0,
+    "pixelatePixelGridSize": 0,
+    "pixelateMode": 0,
+    "pixelateOutlineThickness": 0,
+    "doodles": {
+        "m_Items": [
+            {
+                "doodleReferenceType": 7,
+                "doodle": [],
+                "label": "Image",
+                "strength": 0.25,
+                "invertStrength": false,
+                "assetReferenceGuid": "e66d6b88e8e3c524a90a0bad9591565b",
+                "unlabeledIndex": -1
+            }
+        ]
+    },
+    "upscaleFactor": 0,
+    "dimensions": {
+        "width": 1024,
+        "height": 1024
+    },
+    "spriteSheet": false,
+    "duration": 0.0,
+    "dynamicParams": {
+        "serializedData": []
+    }
+}
