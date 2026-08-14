@@ -16,12 +16,16 @@ public class EnemyAI : MonoBehaviour
     // ════════════════════════════════════════════════════════
 
     [Header("── Perception ──")]
+    [Tooltip("มุมมองด้านหน้า (องศา) — ต้องอยู่ในมุมนี้ถึงจะเห็นได้ (เหมือนสายตามองตรงไปข้างหน้า)")]
     public float fovAngle        = 120f;
+    [Tooltip("ระยะที่มองเห็นได้ภายในมุมมองด้านหน้า (fovAngle)")]
     public float fovRange        = 500f;
-    public float peripheralRange = 150f;
+    [Tooltip("ระยะที่ 'รู้สึกได้' รอบตัวแบบ 360 องศา ไม่เช็คมุมมองเลย (แค่เช็คว่ามีกำแพงบังไหม) — ถ้าตั้งไว้กว้างเกินไป จะดูเหมือน AI 'รู้' ตำแหน่งผู้เล่นทั้งที่ยังไม่เคยหันหน้าไปมองเลยด้วยซ้ำ แนะนำตั้งให้แคบ (ระยะประชิดตัวจริงๆ)")]
+    public float peripheralRange = 60f;
     public int   fovRayCount     = 14;
 
     [HideInInspector] public bool    canSeePlayer = false;
+    [HideInInspector] public bool    rawCanSeePlayer = false; // ค่า "เห็นจริงๆ" ไม่ผ่านช่วงผ่อนผัน Sight Persistence (ใช้จับจังหวะเสียสายตาจริงให้แม่นยำ)
     [HideInInspector] public float   distToPlayer = 0f;
 
     // ════════════════════════════════════════════════════════
@@ -50,6 +54,12 @@ public class EnemyAI : MonoBehaviour
 
     [Header("── Utility (Decision Making) ──")]
     public float lowManaThreshold = 30f;
+    [Tooltip("ระยะที่นับว่าเป็น 'เพื่อนอยู่ใกล้ๆ' สำหรับคำนวณความกล้าจากจำนวนที่ได้เปรียบ (Squad Courage)")]
+    public float allyCourageRadius = 300f;
+    [Tooltip("จำนวนเพื่อนขั้นต่ำที่ต้องอยู่ใกล้ๆ ถึงจะกล้าเข้าปะทะ (Aggressive) แม้ผู้เล่น Mana จะสูงอยู่ก็ตาม — ตั้งเป็นเลขมากๆ (เช่น 99) ถ้าไม่อยากให้มีผลนี้เลย")]
+    public int minAlliesForCourage = 2;
+    [Tooltip("ตัวคูณความเร็วตอนพุ่งเข้าปะทะ (Aggressive) คูณกับ Max Speed — ตั้งไว้ต่ำกว่า 1.0 โดยตั้งใจ (ช้ากว่า Max Speed ปกติ) ถ้ายังรู้สึกว่าเร็วเกินไปอยู่ ให้ลดค่า Max Speed หลักลงตรงๆ แทน เพราะทุก State ใช้ค่านี้เป็นฐานร่วมกันหมด")]
+    public float aggressiveSpeedMultiplier = 0.75f;
 
     [Range(0f,2f)] public float weightDanger   = 1.0f;
     [Range(0f,2f)] public float weightSafety   = 1.0f;
@@ -125,16 +135,35 @@ public class EnemyAI : MonoBehaviour
     [Header("── Squad ──")]
     [Tooltip("ถ้ามี SquadManager จะ auto-find อัตโนมัติ")]
     public EnemySquadManager squad;
-    [Tooltip("ส่ง Alert ไปให้ Squad เมื่อเห็น Player")]
+    [Tooltip("ส่ง Alert ไปให้ Squad ทั้งตอนเห็นผู้เล่นครั้งแรก และตอนเข้าสู่โหมดค้นหา (Search) หลังเสียสายตา — เรียกเพื่อนมาช่วยหาด้วย")]
     public bool broadcastAlertOnSight = true;
     private bool hasAlerted = false; // ส่งแล้วหรือยัง (reset ทุกครั้งที่เสีย sight)
+
+    [Header("── Sight Persistence (กันลืมเร็วเกินไปตอนเห็นแวบเดียวหาย) ──")]
+    [Tooltip("เวลาที่จะยัง 'ถือว่าเห็นอยู่' ต่อ แม้ Raycast จะไม่เจอผู้เล่นแล้วในเฟรมนั้นๆ (วินาที) — กันลืมเร็วเกินไปตอนผู้เล่นเดินผ่านมุมกำแพง/สิ่งกีดขวางแค่ชั่วครู่")]
+    public float sightPersistenceDuration = 0.5f;
+
+    [Header("── Path Around Walls (อ้อมมุมกำแพงตอนเดินไปเป้าหมายไกลๆ) ──")]
+    [Tooltip("ระยะเว้นจากมุมกำแพงจริง ตอนคำนวณจุดอ้อม (กันเดินไปเบียดติดขอบกำแพงพอดี)")]
+    public float pathCornerMargin = 15f;
+    [Tooltip("ความถี่ในการคำนวณเส้นทางอ้อมใหม่ (วินาที) — ยิ่งถี่ยิ่งไวต่อการเปลี่ยนแปลงแต่เสี่ยงแกว่งง่ายขึ้น")]
+    public float pathRecalcInterval = 0.4f;
+    [Range(0f, 0.9f)]
+    [Tooltip("ความ 'ดื้อ' ที่จะยึดมุมเดิมที่เคยเลือกไว้ (0 = ไม่ดื้อเลย เปลี่ยนใจง่าย, 0.3 = ต้องดีกว่าเดิมอย่างน้อย 30% ถึงจะยอมเปลี่ยน) ค่าสูงกันอาการเดินแกว่งซ้าย-ขวาสลับมุมไม่คืบหน้า")]
+    public float pathStickBonus = 0.3f;
+
+    [Header("── Fallback: ไม่มี Waypoint กำหนดไว้ ──")]
+    [Tooltip("ถ้าไม่ได้ตั้งค่า Waypoints ไว้เลย จะเดินเล่นสุ่มวนรอบจุดเกิด (Spawn Position) แทน ไม่ใช่ยืนนิ่งสนิทค้างตลอดไป — รัศมีที่จะเดินวนรอบ")]
+    public float noWaypointWanderRadius = 100f;
+    [Tooltip("ถ้ามี Squad และตั้งค่า Map Center/Size ไว้แล้ว จะใช้ระบบกระจายตัวคุมพื้นที่ทั่วแมพแทนการวนอยู่แค่ใกล้จุดเกิดของตัวเอง (แนะนำเปิดไว้ถ้ามีศัตรูหลายตัว กันกระจุกกันโซนเดียว)")]
+    public bool useSquadCoverage = true;
 
     // ════════════════════════════════════════════════════════
     //  SEARCH (ค้นหาต่อหลังเสียสายตาผู้เล่น)
     // ════════════════════════════════════════════════════════
 
     [Header("── Search (ค้นหาหลังเสียสายตาผู้เล่น) ──")]
-    [Tooltip("ระยะที่จะเดินอ้อมต่อไปตามทิศทางที่ผู้เล่นวิ่งหนี หลังถึงจุดสุดท้ายที่เห็นแล้ว (ใช้เดินอ้อมไปดูหลังกำแพง)")]
+    [Tooltip("[เลิกใช้แล้ว] เดิมเป็นระยะอ้อมคงที่ ตอนนี้แทนที่ด้วยระบบคำนวณอิงเวลาจริง (ดูหัวข้อ 'ความแม่นยำในการคาดเดา' ด้านล่าง) เก็บฟิลด์นี้ไว้เฉยๆ กันเสียค่าที่เคยตั้งไว้")]
     public float searchOvershootDistance = 150f;
     [Tooltip("เวลาสูงสุดที่จะค้นหาต่อเนื่องก่อนยอมแพ้แล้วกลับไปลาดตระเวน (วินาที)")]
     public float searchMaxDuration = 6f;
@@ -146,14 +175,29 @@ public class EnemyAI : MonoBehaviour
     public float wallHugDistance = 40f;
     [Tooltip("จำนวนจุดที่จะเดินสำรวจต่อเนื่องกัน ก่อนจะยอมหยุดรอ (กันอาการเดินถึงจุดเดียวแล้วหยุดนิ่งค้าง)")]
     public int searchSweepPoints = 3;
-    [Tooltip("ความเร็วตอนรีบไปยังจุดที่เห็นผู้เล่นล่าสุด (Alert) คูณกับ Max Speed — ยิ่งเยอะยิ่งรีบไปไว")]
-    public float alertRushSpeedMultiplier = 1.4f;
+    [Tooltip("ความเร็วตอนรีบไปยังจุดที่เห็นผู้เล่นล่าสุด (Alert) คูณกับ Max Speed — ถ้ายังรู้สึกว่าเร็วเกินไปอยู่ ให้ลดค่า Max Speed หลักลงตรงๆ แทน เพราะทุก State ใช้ค่านี้เป็นฐานร่วมกันหมด")]
+    public float alertRushSpeedMultiplier = 1.1f;
     [Tooltip("ความเร็วตอนเดินสำรวจแบบระมัดระวังใน Search (คูณกับ Max Speed) — ยิ่งน้อยยิ่งเดินช้า/ระวังตัว เหมือนหน่วยรบเคลียร์พื้นที่")]
     public float searchWalkSpeedMultiplier = 0.5f;
-    [Tooltip("เวลาที่จะหยุดหันมองกวาดซ้าย-ขวาเช็คแต่ละจุด ก่อนไปจุดถัดไป (วินาที) เหมือนเช็คมุมอับทีละจุด")]
-    public float searchLookDuration = 0.9f;
-    [Tooltip("มุมที่จะหันกวาดซ้าย-ขวาตอนเช็คแต่ละจุด (องศา)")]
+    [Tooltip("เวลาที่จะหยุดหันมองกวาดจากซ้ายสุดไปขวาสุดทีเดียวแบบนุ่มนวล (วินาที) เหมือนเช็คมุมอับทีละจุด — ยิ่งเยอะยิ่งดูสุขุม/ไม่รีบร้อน")]
+    public float searchLookDuration = 1.2f;
+    [Tooltip("มุมสุดขอบซ้าย/ขวาที่จะกวาดไปถึงตอนเช็คแต่ละจุด (องศา) — กวาดจาก -มุมนี้ ไป +มุมนี้ ทีเดียวแบบนุ่มนวล ไม่ใช่หมุนวนหลายรอบ")]
     public float searchLookSweepAngle = 70f;
+
+    [Header("── ความแม่นยำในการคาดเดา (Prediction Accuracy) ──")]
+    [Tooltip("ความเร็วผู้เล่นโดยประมาณ ใช้แทนตอนไม่มีข้อมูล Velocity จริง (หน่วย/วินาที) สำหรับคำนวณระยะคาดการณ์")]
+    public float assumedPlayerSpeed = 5f;
+    [Tooltip("ระยะขั้นต่ำที่จะเดินอ้อมไปเช็ค แม้จะเพิ่งเสียสายตาไปไม่นาน")]
+    public float minSearchDistance = 60f;
+    [Tooltip("ระยะสูงสุดที่จะเดินอ้อมไปเช็ค กันคำนวณไกลเกินจริงถ้าเวลาผ่านไปนานมากแล้ว")]
+    public float maxSearchDistance = 400f;
+    [Range(0f, 1f)]
+    [Tooltip("น้ำหนักของความเร็วสด (lastKnownVel) เทียบกับรอยเท้าที่ถ่วงน้ำหนักแล้ว ตอนผสมกันหาทิศทาง (1 = เชื่อความเร็วสดอย่างเดียว)")]
+    public float velocityDirectionWeight = 0.7f;
+    [Tooltip("มุมที่จะแยกทิศทางค้นหาต่อคน ถ้ามีศัตรูหลายตัวช่วยกันหาผู้เล่นคนเดียวกันพร้อมกัน (องศา) — มี 2 ตัว: ตัวหนึ่งไปซ้าย อีกตัวไปขวาทันที มี 3-4 ตัว: กว้างออกไปอีกชั้นในฝั่งเดียวกัน ต้องมี Squad ถึงจะทำงาน")]
+    public float squadSearchSpreadAngle = 50f;
+
+    private float timeSightLost = 0f; // Time.time ตอนเพิ่งเสียสายตา ใช้คำนวณว่าผู้เล่นน่าจะเดินไปได้ไกลแค่ไหนแล้ว
 
     private List<Vector2> playerTrail = new List<Vector2>();
     private float trailTimer = 0f;
@@ -224,11 +268,22 @@ public class EnemyAI : MonoBehaviour
     private bool  isPeeking         = false;
 
     private float alertTimer = 0f;
+    private float sightLostGraceTimer = 0f;
 
     private Vector2 stuckCheckPos   = Vector2.zero;
+    private Vector2 spawnPosition   = Vector2.zero;
+    private Vector2 wanderTarget    = Vector2.zero;
+    /// <summary>จุดหมายที่กำลังเดินเล่นสำรวจไปอยู่ตอนนี้ (Read-only) — ใช้โดย SquadDebugDisplay เพื่อวาดเส้นยืนยันว่าระบบกระจายพื้นที่ทำงานจริง</summary>
+    public Vector2 WanderTargetDebug => wanderTarget;
+    private Vector2 cachedWaypoint  = Vector2.zero;
+    private Vector2 cachedPathTarget = Vector2.zero;
+    private bool    hasCachedWaypoint = false;
+    private float   pathRecalcTimer = 0f;
+    private bool    hasWanderTarget = false;
     private float   stuckCheckTimer = 0f;
     private float   stuckRecovTimer = 0f;
     private Vector2 stuckRecovDir   = Vector2.zero;
+    private bool    isStuckRecovering = false; // กำลังกู้ตัวเองออกจากจุดติดขัดอยู่ไหม (ใช้บอก Seek() ว่าควรหันหน้าตามทิศไหน)
 
     private struct GridDebug { public Vector2 pos; public float score; }
     private List<GridDebug> debugGrid = new List<GridDebug>();
@@ -237,6 +292,32 @@ public class EnemyAI : MonoBehaviour
     //  INIT
     // ════════════════════════════════════════════════════════
 
+    // ════════════════════════════════════════════════════════
+    //  SELF-REGISTRY (แทนการพึ่ง FindObjectsByType ที่บางโปรเจกต์หาไม่เจอ)
+    // ════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// รายชื่อ EnemyAI ที่ Active อยู่ทั้งหมดในฉากตอนนี้ — แต่ละตัวลงทะเบียนตัวเองใน OnEnable() และถอนออกใน OnDisable()
+    /// ใช้แทน FindObjectsByType&lt;EnemyAI&gt;() ที่บางเครื่อง/บางโปรเจกต์หา instance ไม่เจอ (สาเหตุที่พบบ่อยคือ
+    /// มีไฟล์ EnemyAI.cs ซ้ำซ้อนกันในโปรเจกต์ ทำให้ Reflection สับสนว่าจะหา Type ไหน) — การลงทะเบียนตัวเองแบบนี้
+    /// ไม่ต้องพึ่ง Reflection เลย เชื่อถือได้ 100% ไม่ว่าจะมีปัญหาอะไรกับโปรเจกต์ก็ตาม
+    /// EnemySquadManager และ SquadDebugDisplay ใช้ตัวนี้แทนการเรียก FindObjectsByType โดยตรง
+    /// </summary>
+    public static readonly List<EnemyAI> AllActive = new List<EnemyAI>();
+
+    void OnEnable()
+    {
+        if (!AllActive.Contains(this)) AllActive.Add(this);
+        // Log ยืนยันตัว: ถ้ากด Play แล้วไม่เห็นข้อความนี้ใน Console เลยสักครั้ง ทั้งที่เห็น AI เคลื่อนไหวอยู่ในเกม
+        // แปลว่า AI ตัวที่กำลังรันอยู่จริงๆ ไม่ได้ใช้โค้ดไฟล์นี้ (มีไฟล์ EnemyAI.cs ซ้ำอยู่ที่อื่นในโปรเจกต์แน่นอน)
+        Debug.Log($"[EnemyAI] ลงทะเบียนตัวเองแล้ว: {gameObject.name} (ตอนนี้มีทั้งหมด {AllActive.Count} ตัว) จากไฟล์ {System.Reflection.Assembly.GetAssembly(typeof(EnemyAI)).GetName().Name}");
+    }
+
+    void OnDisable()
+    {
+        AllActive.Remove(this);
+    }
+
     void Start()
     {
         rb   = GetComponent<Rigidbody2D>();
@@ -244,9 +325,19 @@ public class EnemyAI : MonoBehaviour
         weapon = GetComponent<EnemyWeaponSystem>(); // auto-find WeaponSystem
 
         currentHealth     = maxHealth;
+        // สำคัญมาก: บังคับให้เป็น Kinematic เสมอ เพราะโค้ด AI ทั้งหมดในไฟล์นี้เขียนตำแหน่ง/ความเร็วผ่าน
+        // rb.linearVelocity และ transform.position/rotation ตรงๆ เอง ถ้า Rigidbody2D เป็น Dynamic (ค่า Default
+        // ของ Unity) พอตัวศัตรู 2 ตัวชนกัน/ชิดกัน Physics Engine จะเสริมแรงผลักกันเองอัตโนมัติ (Collision Response)
+        // ซ้อนทับกับความเร็วที่สคริปต์สั่งไว้ กลายเป็นสองระบบแย่งกันคุมตำแหน่งเดียวกัน ทำให้เกิดอาการ "สไลด์" หรือ
+        // เคลื่อนที่แปลกๆ ที่สคริปต์ไม่ได้สั่งเลย (บั๊กที่เจอตอนทดสอบ: ตัวสไลด์ไปเองระหว่างช่วงหยุดกวาดมอง)
+        rb.bodyType       = RigidbodyType2D.Kinematic;
         rb.gravityScale   = 0f;
         rb.freezeRotation = true;
+        // เปิด Continuous Collision Detection กันทะลุกำแพงบางๆ ตอนความเร็วสูง (Discrete ค่า Default ของ Unity
+        // จะข้ามสิ่งกีดขวางบางๆ ไปได้ในเฟรมเดียวถ้าความเร็วมากพอ ทำให้ดูเหมือนเดินทะลุกำแพงได้แบบไม่มีปัญหาเลย)
+        rb.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
         stuckCheckPos     = transform.position;
+        spawnPosition     = transform.position; // เก็บไว้ใช้เดินเล่นวนรอบ ถ้าไม่ได้ตั้งค่า Waypoints เอาไว้เลย
 
         GameObject p = GameObject.FindGameObjectWithTag("Player");
         if (p != null)
@@ -273,7 +364,7 @@ public class EnemyAI : MonoBehaviour
     {
         if (player == null) return;
 
-        bool wasSeeingPlayer = canSeePlayer; // ค่าจากเฟรมก่อนหน้า ก่อนที่ ScanFOV() จะเขียนทับ
+        bool wasRawSeeingPlayer = rawCanSeePlayer; // ค่า "เห็นจริงๆ" ก่อนหน้า ไม่ผ่านช่วงผ่อนผัน Sight Persistence
 
         fireTimer    -= Time.deltaTime;
         dodgeTimer   -= Time.deltaTime;
@@ -285,14 +376,20 @@ public class EnemyAI : MonoBehaviour
         ScanFOV();
         distToPlayer = Vector2.Distance(transform.position, player.position);
 
-        // ── เพิ่งเสีย Sight พอดี: หาว่ากำแพงตัวไหนที่บังสายตาจริงๆ (ใช้ระบุฝั่งที่ถูกต้องตอนค้นหาทีหลัง) ──
-        if (wasSeeingPlayer && !canSeePlayer && hasLastKnown)
+        // ── เพิ่งเสีย Sight "จริงๆ" พอดี (ไม่ใช่ตอนช่วงผ่อนผันหมด): หาว่ากำแพงตัวไหนที่บังสายตาจริงๆ ──
+        // ต้องใช้ rawCanSeePlayer (ไม่ผ่าน Sight Persistence) ไม่ใช่ canSeePlayer ที่ถูกหน่วงเวลาไว้
+        // เพราะถ้าใช้ canSeePlayer จังหวะตรวจจับจะช้าไปกว่าตอนเสียสายตาจริง ทำให้ Raycast จากตำแหน่งปัจจุบัน
+        // (ที่อาจขยับไปแล้วระหว่างช่วงผ่อนผัน) ไปยัง lastKnownPos (ที่ค้างอยู่จุดเดิม) พลาดกำแพงตัวที่บังจริงได้
+        // ผลคือบางครั้งจับกำแพงไม่ได้เลย (lastBlockingWall เป็น null) ทั้งที่รู้แน่ๆ ว่าผู้เล่นอ้อมกำแพงตัวนี้ไปแน่นอน
+        if (wasRawSeeingPlayer && !rawCanSeePlayer && hasLastKnown)
         {
+            timeSightLost = Time.time; // เริ่มนับเวลา ใช้คำนวณว่าผู้เล่นน่าจะเดินไปได้ไกลแค่ไหนแล้ว
+
             Vector2 toLastKnown = lastKnownPos - (Vector2)transform.position;
             if (toLastKnown.sqrMagnitude > 0.01f)
             {
                 RaycastHit2D wallHit = Physics2D.Raycast(transform.position, toLastKnown.normalized, toLastKnown.magnitude, wallLayer);
-                lastBlockingWall = wallHit.collider; // อาจเป็น null ถ้าหาไม่เจอ (DoSearch จะ fallback เอง)
+                lastBlockingWall = wallHit.collider; // อาจเป็น null ถ้าหาไม่เจอจริงๆ (DoSearch จะ fallback เอง)
             }
         }
 
@@ -357,7 +454,7 @@ public class EnemyAI : MonoBehaviour
 
     void ScanFOV()
     {
-        canSeePlayer = false;
+        bool rawCanSee = false;
         Vector2 facing = transform.up;
         float   half   = fovAngle * 0.5f;
         float   step   = fovAngle / (fovRayCount - 1);
@@ -367,17 +464,38 @@ public class EnemyAI : MonoBehaviour
             Vector2 dir = Quaternion.Euler(0,0,-half+step*i) * facing;
             RaycastHit2D hit = Physics2D.Raycast(transform.position, dir, fovRange);
             if (hit.collider != null && hit.collider.CompareTag("Player"))
-            { canSeePlayer = true; break; }
+            { rawCanSee = true; break; }
         }
 
-        if (!canSeePlayer && distToPlayer <= peripheralRange)
+        if (!rawCanSee && distToPlayer <= peripheralRange)
         {
             Vector2 toP = (Vector2)player.position - (Vector2)transform.position;
             if (!Physics2D.Raycast(transform.position, toP.normalized, toP.magnitude, wallLayer))
-                canSeePlayer = true;
+                rawCanSee = true;
         }
 
-        if (canSeePlayer)
+        // Sight Persistence: กันลืมเร็วเกินไปตอนเห็นแวบเดียวหาย (เช่นผู้เล่นเดินผ่านมุมกำแพง/สิ่งกีดขวางแค่ชั่วครู่เดียว)
+        // ของเดิม canSeePlayer เปลี่ยนเป็น false ทันทีที่ Raycast เฟรมนั้นไม่เจอผู้เล่น ทำให้ดูเหมือน "ลืมเร็วมาก"
+        // ทั้งที่จริงๆ ผู้เล่นแค่บังแวบเดียวแล้วก็โผล่ต่อ — ตอนนี้จะยังถือว่า "เห็นอยู่" ต่อไปอีก sightPersistenceDuration
+        // วินาที แม้ Raycast เฟรมนี้จะไม่เจอแล้วจริงๆ ก็ตาม กันการลืม/เข้าสู่โหมดค้นหาเร็วเกินไปโดยไม่จำเป็น
+        rawCanSeePlayer = rawCanSee; // เก็บค่าดิบไว้ให้ Update() ใช้จับจังหวะเสียสายตาจริง (ไม่ผ่านช่วงผ่อนผัน)
+
+        if (rawCanSee)
+        {
+            canSeePlayer = true;
+            sightLostGraceTimer = sightPersistenceDuration;
+        }
+        else if (sightLostGraceTimer > 0f)
+        {
+            sightLostGraceTimer -= Time.deltaTime;
+            canSeePlayer = true; // ยังอยู่ในช่วงผ่อนผัน ถือว่าเห็นต่อไปก่อน
+        }
+        else
+        {
+            canSeePlayer = false;
+        }
+
+        if (rawCanSee) // อัปเดตตำแหน่ง/ความเร็วล่าสุดเฉพาะตอนเห็นจริงๆ เท่านั้น ไม่ใช่ช่วงผ่อนผัน (กันตำแหน่งเพี้ยน)
         {
             lastKnownPos = player.position;
             lastKnownVel = playerRb != null ? playerRb.linearVelocity : Vector2.zero;
@@ -470,6 +588,21 @@ public class EnemyAI : MonoBehaviour
         float playerMana  = playerStatus != null ? playerStatus.currentMana : 50f;
         bool  isAggressive = playerMana < lowManaThreshold;
 
+        // ── Squad Courage: ถ้ามีเพื่อนอยู่ใกล้ๆ หลายตัว (ได้เปรียบด้านจำนวน) ให้กล้าเข้าปะทะมากขึ้น ──
+        // แม้ผู้เล่น Mana จะยังสูงอยู่ก็ตาม — ไม่งั้นทุกครั้งที่เริ่มเกมใหม่ (ผู้เล่น Mana เต็มเสมอ)
+        // ศัตรูทุกตัวจะหนีพร้อมกันหมดทันทีที่เห็นผู้เล่น ดูไม่เป็นธรรมชาติ ทั้งที่จริงๆ มีจำนวนได้เปรียบกว่ามาก
+        if (!isAggressive && squad != null)
+        {
+            int nearbyAllies = 0;
+            foreach (var ally in AllActive)
+            {
+                if (ally == this || ally == null) continue;
+                if (Vector2.Distance(transform.position, ally.transform.position) < allyCourageRadius)
+                    nearbyAllies++;
+            }
+            if (nearbyAllies >= minAlliesForCourage) isAggressive = true;
+        }
+
         switch (state)
         {
             case BehaviorState.Patrol:
@@ -486,6 +619,11 @@ public class EnemyAI : MonoBehaviour
                     searchTimer = searchMaxDuration;
                     hasSearchOvershootTarget = false;
                     isLookingAtPoint = false;
+
+                    // เรียกเพื่อนในทีมมาช่วยหาด้วย (เดิมแจ้งแค่ตอนเห็นผู้เล่นครั้งแรก ไม่เคยแจ้งตอนเข้าโหมดค้นหาเลย
+                    // ทำให้ตอนทดสอบหลายตัว เพื่อนที่ยัง Patrol อยู่ไม่มาช่วยหาด้วยเลยแม้จะหาไม่เจอนานแล้วก็ตาม)
+                    if (squad != null && broadcastAlertOnSight)
+                        squad.BroadcastAlert(lastKnownPos, this);
                 }
                 else if (alertTimer <= 0f && !hasLastKnown)
                 { PickRandomWaypoint(); state = BehaviorState.ReturnToWaypoint; }
@@ -569,7 +707,7 @@ public class EnemyAI : MonoBehaviour
     // ── PATROL ──────────────────────────────────────────────
     void DoPatrol()
     {
-        if (waypoints == null || waypoints.Length == 0) return;
+        if (waypoints == null || waypoints.Length == 0) { DoWanderNearSpawn(); return; }
         if (isWaiting)
         {
             Seek(transform.position);
@@ -582,6 +720,35 @@ public class EnemyAI : MonoBehaviour
         Seek(waypoints[waypointIndex].position, patrolMode: true);
         if (Vector2.Distance(transform.position, waypoints[waypointIndex].position) < waypointReachDistance)
         { isWaiting = true; waitTimer = waypointWaitTime; waypointTimer = waypointTimeout; }
+    }
+
+    /// <summary>
+    /// Fallback ตอนไม่ได้ตั้งค่า Waypoints ไว้เลย — เดินเล่นสุ่มไปมาแทน ไม่งั้น DoPatrol()/DoReturnToWaypoint()
+    /// แบบเดิมจะ "return เฉยๆ" ทันทีที่เจอ waypoints ว่าง ทำให้ตัว AI ยืนนิ่งสนิทค้างอยู่กับที่ตลอดไป
+    /// ทุกครั้งที่กลับเข้าสู่ Patrol/ReturnToWaypoint (บั๊กที่เจอตอนทดสอบ)
+    ///
+    /// ถ้ามี Squad และตั้งค่า Map Center/Size ไว้แล้ว (useSquadCoverage) จะขอจุดกระจายตัวจาก Squad แทน
+    /// ซึ่งจะเลือกพื้นที่ที่ยังไม่มีเพื่อนตัวอื่นคุมอยู่ ครอบคลุมทั่วทั้งแมพจริงๆ — แก้ปัญหาที่เจอว่า
+    /// ถ้าใช้แค่ "วนใกล้จุดเกิดตัวเอง" (spawnPosition) แล้วจุดเกิดของทุกตัวกระจุกกันอยู่ฝั่งเดียวของแมพ
+    /// จะไม่มี AI ตัวไหนเดินไปสำรวจฝั่งอื่นเลยตลอดไป แม้ผู้เล่นจะยืนอยู่แถวนั้นก็ตาม
+    /// ถ้าไม่มี Squad หรือยังไม่ได้ตั้งค่า Map Size ไว้ จะ Fallback ไปใช้วิธีวนใกล้จุดเกิดตัวเองแบบเดิม
+    /// </summary>
+    void DoWanderNearSpawn()
+    {
+        if (!hasWanderTarget || Vector2.Distance(transform.position, wanderTarget) < waypointReachDistance)
+        {
+            if (useSquadCoverage && squad != null && squad.mapSize.sqrMagnitude > 1f)
+                wanderTarget = squad.GetSpreadOutPosition(this);
+            else
+                wanderTarget = spawnPosition + Random.insideUnitCircle * noWaypointWanderRadius;
+
+            hasWanderTarget = true;
+            // ถ้ากำลังอยู่ใน ReturnToWaypoint (กลับมาจากการค้นหา) ให้กลับเข้าสู่ Patrol ตามปกติทันที
+            // ไม่งั้นจะค้างอยู่ใน ReturnToWaypoint ตลอดไปเหมือนกัน เพราะไม่มี waypoints[] ให้เช็คระยะถึง
+            if (state == BehaviorState.ReturnToWaypoint) state = BehaviorState.Patrol;
+        }
+
+        Seek(wanderTarget, patrolMode: true);
     }
 
     // ── ALERT: รีบเดินไปยังจุดที่เห็นผู้เล่นล่าสุดให้เร็วที่สุด (เฟส 1: Rush) ──
@@ -601,9 +768,10 @@ public class EnemyAI : MonoBehaviour
             rb.linearVelocity = Vector2.Lerp(rb.linearVelocity, Vector2.zero, Time.deltaTime * 8f);
             lookTimer -= Time.deltaTime;
 
-            // หันกวาดซ้าย-ขวาเหมือนกำลังเช็คมุมอับ (Pie/Jiggle Peek สไตล์หน่วยรบ)
+            // หันกวาดจากซ้ายสุดไปขวาสุดทีเดียวแบบนุ่มนวล (SmoothStep) เหมือนกำลังเช็คมุมอับจริงๆ
+            // (ของเดิมใช้ Sin เต็มรอบ ทำให้กวาดไปมา 2 รอบเต็มภายในเวลาสั้นๆ ดูเหมือนหมุนติ้วๆ ไม่ใช่เช็คมุมอับ)
             float t = 1f - Mathf.Clamp01(lookTimer / searchLookDuration);
-            float angleOffset = Mathf.Sin(t * Mathf.PI * 2f) * searchLookSweepAngle;
+            float angleOffset = Mathf.SmoothStep(-searchLookSweepAngle, searchLookSweepAngle, t);
             Vector2 baseDir = (searchOvershootTarget - (Vector2)transform.position);
             if (baseDir.sqrMagnitude < 0.01f) baseDir = transform.up;
             float baseAngle = Mathf.Atan2(baseDir.y, baseDir.x) * Mathf.Rad2Deg - 90f;
@@ -618,7 +786,7 @@ public class EnemyAI : MonoBehaviour
                 {
                     // เช็คจุดนี้ครบแล้ว ไม่เจอ -> เดินสำรวจลึกเข้าไปอีกจุดในทิศทางเดียวกัน
                     Vector2 dir = GetSearchDirection();
-                    searchOvershootTarget = searchOvershootTarget + dir * (searchOvershootDistance * 0.6f);
+                    searchOvershootTarget = searchOvershootTarget + dir * (ComputeAdaptiveSearchDistance() * 0.4f);
                     hasSearchOvershootTarget = true;
                 }
                 else
@@ -652,31 +820,76 @@ public class EnemyAI : MonoBehaviour
     }
 
     /// <summary>
-    /// ทิศทางที่จะใช้เดินสำรวจ — ใช้ 'ความเร็วล่าสุดตอนเพิ่งเสียสายตา' (lastKnownVel) เป็นอันดับแรก
-    /// เพราะเป็นข้อมูลสดที่สุด จับทิศตอน 'หักมุม' เข้ากำแพงได้แม่นกว่ารอยเท้าที่เฉลี่ยกับช่วงเดินก่อนหน้าทั้งหมด
-    /// ถ้าไม่มีข้อมูลความเร็ว (เช่น player ไม่มี Rigidbody2D) ค่อย fallback ไปใช้ค่าเฉลี่ยถ่วงน้ำหนักจากรอยเท้าแทน
+    /// ทิศทางที่จะใช้เดินสำรวจ — ผสมสัญญาณ 2 แหล่งเข้าด้วยกันแทนที่จะเลือกใช้แค่อย่างเดียว เพื่อความแม่นยำสูงสุด:
+    /// 1) ความเร็วสดตอนเพิ่งเสียสายตา (lastKnownVel) — น้ำหนักหลัก เพราะเป็นข้อมูลล่าสุดจริง จับทิศตอน "หักมุม" ได้แม่น
+    /// 2) รอยเท้าที่ถ่วงน้ำหนักตามความใหม่ (EstimateFleeDirection) — ช่วยกันสัญญาณรบกวน/ความเร็วกระตุกผิดปกติชั่วขณะ
+    /// ปรับสัดส่วนน้ำหนักได้ที่ Velocity Direction Weight (ค่าเริ่มต้น 0.7 = เชื่อความเร็วสด 70%)
+    ///
+    /// ถ้ามีศัตรูหลายตัวกำลัง Search พร้อมกัน (ผ่าน Squad) จะแบ่งทิศทางออกคนละฝั่งด้วย (squadSearchSpreadAngle)
+    /// แบ่งซ้าย-ขวาสมมาตรรอบทิศทางที่คาดเดาไว้ทันที: มี 2 ตัว -> ตัวหนึ่งไปซ้าย อีกตัวไปขวา พร้อมกันเลย
+    /// มีมากกว่านั้น -> ตัวถัดๆ ไปในฝั่งเดียวกันจะกว้างออกไปอีกชั้น กันเดินไปจุดเดียวกันหมดทุกตัว
     /// </summary>
     Vector2 GetSearchDirection()
     {
-        if (lastKnownVel.sqrMagnitude > 0.05f) return lastKnownVel.normalized;
+        Vector2 velDir = lastKnownVel.sqrMagnitude > 0.05f ? lastKnownVel.normalized : Vector2.zero;
+        Vector2 trailDir = EstimateFleeDirection();
 
-        Vector2 fleeDir = EstimateFleeDirection();
-        if (fleeDir != Vector2.zero) return fleeDir;
+        Vector2 baseDir;
+        if (velDir != Vector2.zero && trailDir != Vector2.zero)
+        {
+            Vector2 blended = velDir * velocityDirectionWeight + trailDir * (1f - velocityDirectionWeight);
+            baseDir = blended.sqrMagnitude > 0.0001f ? blended.normalized : velDir;
+        }
+        else if (velDir != Vector2.zero) baseDir = velDir;
+        else if (trailDir != Vector2.zero) baseDir = trailDir;
+        else baseDir = (Vector2)transform.up;
 
-        return (Vector2)transform.up;
+        // แบ่งทิศทางกับเพื่อนที่กำลังค้นหาพร้อมกันอยู่ (ถ้ามี Squad และมีมากกว่า 1 ตัวที่กำลัง Search)
+        // แบ่งซ้าย-ขวาสมมาตรรอบทิศทางที่คาดเดาไว้ทันที: ตัวลำดับคู่ (0,2,4...) ไปทางซ้าย, ตัวลำดับคี่ (1,3,5...) ไปทางขวา
+        // เช่น มี 2 ตัวช่วยกันหา -> ตัวแรกไปซ้าย ตัวที่สองไปขวา ทันที (ไม่ใช่ตัวแรกเดินตรงแล้วตัวรองค่อยแยก)
+        // ตัวที่ 3, 4 ขึ้นไปในฝั่งเดียวกัน จะกว้างออกไปอีกชั้น (Sector) กันเดินทับเส้นทางตัวแรกของฝั่งเดียวกัน
+        // จำกัด Sector สูงสุดไว้ที่ 3 ชั้น กันตัวหลังๆ ในกลุ่มใหญ่มากถูกส่งไปไกลเกินพื้นที่ค้นหาจริง
+        if (squad != null)
+        {
+            int index = squad.GetSearchIndex(this, out int totalSearching);
+            if (index >= 0 && totalSearching > 1)
+            {
+                int side = (index % 2 == 0) ? -1 : 1; // คู่ = ซ้าย, คี่ = ขวา
+                int sector = Mathf.Min((index / 2) + 1, 3);
+                float angle = side * squadSearchSpreadAngle * sector;
+                baseDir = Quaternion.Euler(0, 0, angle) * baseDir;
+            }
+        }
+
+        return baseDir;
+    }
+
+    /// <summary>
+    /// คำนวณระยะที่ควรเดินอ้อมไปเช็ค โดยอิงจาก "เวลาที่ผ่านไปจริง" ตั้งแต่เสียสายตา คูณความเร็วผู้เล่นโดยประมาณ
+    /// (ยิ่งเสียสายตานานเท่าไหร่ ผู้เล่นก็น่าจะเดินไปได้ไกลเท่านั้น) แทนการใช้ระยะคงที่ตายตัวแบบเดิม
+    /// ซึ่งไม่สนใจเลยว่าเวลาผ่านไปนานแค่ไหนก่อนที่ AI จะเริ่มค้นหาจริงๆ (Rush ไปยัง Alert ก่อน กว่าจะถึง Search ก็ผ่านไปแล้วหลายวินาที)
+    /// </summary>
+    float ComputeAdaptiveSearchDistance()
+    {
+        float elapsed = Mathf.Max(0f, Time.time - timeSightLost);
+        float speed = lastKnownVel.magnitude > 0.1f ? lastKnownVel.magnitude : assumedPlayerSpeed;
+        return Mathf.Clamp(speed * elapsed, minSearchDistance, maxSearchDistance);
     }
 
     /// <summary>
     /// คำนวณจุดแรกที่ควรเดินไปเช็ค โดยยึด "กำแพงตัวที่บังสายตาจริง" (lastBlockingWall) เป็นหลัก
     /// ใช้ระยะ wallHugDistance (ค่าคงที่ ไม่ใช่ขนาดกำแพง) เกาะชิดขอบกำแพงตรงจุดที่ใกล้ผู้เล่นล่าสุดที่สุด
-    /// แล้วอ้อมต่อไปในทิศที่ผู้เล่นวิ่งหนี (fleeDir) อีกนิด — แก้จากเวอร์ชันก่อนที่ใช้ขนาดกำแพงเองมาคำนวณ
-    /// ระยะอ้อม ซึ่งถ้ากำแพงยาว/สูงมากจะได้จุดที่ไกลเกินจริงมาก ไม่ได้เดินชิดกำแพงเลย
+    /// แล้วอ้อมต่อไปในทิศที่ผู้เล่นวิ่งหนี (fleeDir) ด้วยระยะที่คำนวณแบบอิงเวลาจริง (ComputeAdaptiveSearchDistance)
+    /// แทนระยะคงที่ตายตัว — แก้จากเวอร์ชันก่อนที่ใช้ขนาดกำแพงเองมาคำนวณระยะอ้อม ซึ่งถ้ากำแพงยาว/สูงมาก
+    /// จะได้จุดที่ไกลเกินจริงมาก ไม่ได้เดินชิดกำแพงเลย
     /// ถ้าไม่รู้ว่ากำแพงตัวไหนบัง (lastBlockingWall เป็น null) จะ fallback ไปเดินอ้อมแบบเส้นตรงแทน
     /// </summary>
     Vector2 ComputeFlankTarget(Vector2 fleeDir)
     {
+        float adaptiveDistance = ComputeAdaptiveSearchDistance();
+
         if (lastBlockingWall == null)
-            return lastKnownPos + fleeDir * searchOvershootDistance;
+            return lastKnownPos + fleeDir * adaptiveDistance;
 
         Bounds wallBounds = lastBlockingWall.bounds;
 
@@ -688,9 +901,9 @@ public class EnemyAI : MonoBehaviour
         toWall.Normalize();
         Vector2 perpendicular = new Vector2(-toWall.y, toWall.x);
 
-        // เกาะชิดขอบกำแพงด้วยระยะคงที่ (wallHugDistance) แล้วอ้อมต่อไปในทิศที่ผู้เล่นวิ่งหนีอีกนิด
-        Vector2 sideA = closestOnWall + perpendicular * wallHugDistance + fleeDir * (searchOvershootDistance * 0.5f);
-        Vector2 sideB = closestOnWall - perpendicular * wallHugDistance + fleeDir * (searchOvershootDistance * 0.5f);
+        // เกาะชิดขอบกำแพงด้วยระยะคงที่ (wallHugDistance) แล้วอ้อมต่อไปในทิศที่ผู้เล่นวิ่งหนีด้วยระยะที่คาดการณ์ไว้
+        Vector2 sideA = closestOnWall + perpendicular * wallHugDistance + fleeDir * (adaptiveDistance * 0.5f);
+        Vector2 sideB = closestOnWall - perpendicular * wallHugDistance + fleeDir * (adaptiveDistance * 0.5f);
 
         // เลือกฝั่งที่ตรงกับทิศทางที่ผู้เล่นวิ่งหนีมากกว่า (Dot Product สูงกว่า = ตรงทิศมากกว่า)
         float scoreA = Vector2.Dot((sideA - lastKnownPos).normalized, fleeDir);
@@ -752,7 +965,7 @@ public class EnemyAI : MonoBehaviour
     void DoAggressive()
     {
         Vector2 target = canSeePlayer ? (Vector2)player.position : lastKnownPos;
-        Seek(target, maxSpeed * 1.3f);
+        Seek(target, maxSpeed * aggressiveSpeedMultiplier);
         RotateToward(target);
 
         if (canSeePlayer && distToPlayer <= aggressRadius * 1.5f)
@@ -766,7 +979,7 @@ public class EnemyAI : MonoBehaviour
 
     void DoReturnToWaypoint()
     {
-        if (waypoints == null || waypoints.Length == 0) return;
+        if (waypoints == null || waypoints.Length == 0) { DoWanderNearSpawn(); return; }
         waypointTimer -= Time.deltaTime;
         if (waypointTimer <= 0f) { PickRandomWaypoint(); return; }
         Seek(waypoints[waypointIndex].position, patrolMode: true);
@@ -781,8 +994,109 @@ public class EnemyAI : MonoBehaviour
     void Seek(Vector2 target, float speed = -1f, bool patrolMode = false)
     {
         if (speed < 0f) speed = maxSpeed;
-        ApplySteering((target - (Vector2)transform.position).normalized, speed);
-        RotateToward(target);
+
+        // หาจุดที่ควรมุ่งไปจริงๆ ก่อน (อาจเป็นเป้าหมายตรงๆ ถ้าไม่มีอะไรบัง หรือจุดอ้อมมุมกำแพงถ้ามีสิ่งกีดขวางบัง)
+        // แก้ปัญหาเดิมที่ระบบ AvoidObstacles อย่างเดียวเป็นแค่การสะท้อนเฉพาะหน้า ไม่ได้คำนวณเส้นทางอ้อมจริงๆ
+        // สำหรับเป้าหมายที่อยู่ไกล ทำให้บางครั้งเดินเข้าใกล้กำแพงแล้วเดินตรงต่อไปเรื่อยๆ (ดูเหมือนพยายามทะลุกำแพง)
+        Vector2 waypoint = GetNextWaypointTowards(target);
+
+        ApplySteering((waypoint - (Vector2)transform.position).normalized, speed);
+
+        // ระหว่างกำลังกู้ตัวเองออกจากจุดติดขัด (isStuckRecovering) ให้หันหน้าตามทิศที่กำลังเดินจริง
+        // (stuckRecovDir) แทนที่จะหันไปทาง target เดิมที่โดนกำแพงบังอยู่ — ของเดิมหันไปทาง target ตลอด
+        // ไม่ว่าจะกำลังกู้ตัวเองอยู่หรือไม่ ทำให้ตัวเลื่อนไปทางหนึ่งแต่หน้าหมุนไล่อีกทางหนึ่งตลอดเวลา
+        // ดูเหมือน "หมุนอยู่กับที่ไม่ไปไหน" ทั้งที่จริงๆ กำลังพยายามกู้ตัวเองออกจากมุมอับอยู่
+        if (isStuckRecovering)
+            RotateToward((Vector2)transform.position + stuckRecovDir);
+        else
+            RotateToward(waypoint);
+    }
+
+    /// <summary>
+    /// หาจุดถัดไปที่ควรมุ่งไปเพื่อไปถึง target ในที่สุด — ถ้าเส้นตรงจาก origin ไป target ไม่มีอะไรบัง
+    /// จะคืนค่า target ตรงๆ เลย แต่ถ้ามีกำแพงบังอยู่ จะหามุมของกำแพงตัวนั้น (2 มุมที่ใกล้เส้นทางที่สุด)
+    /// แล้วเลือกมุมที่ทำให้ระยะทางรวม (ไปมุม + จากมุมไป target) สั้นที่สุด และเส้นทางทั้งสองช่วงต้องโล่งจริง
+    /// ให้ Seek() มุ่งไปจุดนั้นก่อน — ได้เส้นทางที่ "หักเลี้ยว" อ้อมกำแพงจริงๆ แทนเดินตรงเข้าใกล้กำแพงเรื่อยๆ
+    /// คำนวณซ้ำทุก Path Recalc Interval วินาที (ไม่คำนวณทุกเฟรม กันเปลือง Performance) และคำนวณใหม่ทันที
+    /// ถ้า target เปลี่ยนตำแหน่งไปมากพอ (เช่นเปลี่ยนเป้าหมายไล่ล่า)
+    /// </summary>
+    Vector2 GetNextWaypointTowards(Vector2 target)
+    {
+        bool targetChanged = Vector2.Distance(target, cachedPathTarget) > 1f;
+        pathRecalcTimer -= Time.deltaTime;
+
+        if (!targetChanged && pathRecalcTimer > 0f && hasCachedWaypoint)
+            return cachedWaypoint;
+
+        pathRecalcTimer = pathRecalcInterval;
+        cachedPathTarget = target;
+
+        Vector2 origin = transform.position;
+        Vector2 toTarget = target - origin;
+        float dist = toTarget.magnitude;
+
+        if (dist < 0.01f) { cachedWaypoint = target; hasCachedWaypoint = true; return target; }
+
+        RaycastHit2D directHit = Physics2D.Raycast(origin, toTarget.normalized, dist, wallLayer);
+        if (directHit.collider == null)
+        {
+            // ไม่มีอะไรบังเส้นตรง เดินตรงไปเป้าหมายได้เลย ไม่ต้องอ้อม
+            cachedWaypoint = target;
+            hasCachedWaypoint = true;
+            return target;
+        }
+
+        // มีกำแพงบัง หามุมทั้ง 4 ของกำแพงตัวนั้น เลือกมุมที่อ้อมได้จริง (มองเห็นทั้งจากตัวเราและจากมุมไปเป้าหมาย)
+        // แล้วระยะทางรวมสั้นที่สุด — มี Hysteresis กันเปลี่ยนใจสลับมุมไปมา (ดูคำอธิบายด้านล่าง)
+        Bounds b = directHit.collider.bounds;
+        Vector2[] corners =
+        {
+            new Vector2(b.min.x, b.min.y), new Vector2(b.min.x, b.max.y),
+            new Vector2(b.max.x, b.min.y), new Vector2(b.max.x, b.max.y)
+        };
+
+        // จุดที่เคยเลือกไว้รอบก่อน ใช้เทียบว่ามุมไหน "เหมือนเดิม" กันเปลี่ยนใจง่ายเกินไป
+        Vector2 previousWaypoint = hasCachedWaypoint ? cachedWaypoint : target;
+
+        Vector2 best = target;
+        float bestTotalDist = float.MaxValue;
+        bool foundValidCorner = false;
+
+        foreach (var corner in corners)
+        {
+            // ทิศจากจุดศูนย์กลางกำแพงออกไปยังมุมนี้ (ทิศ "ออกด้านนอก") ใช้ขยับจุดออกจากมุมจริงอีกนิด
+            Vector2 outward = (corner - (Vector2)b.center).normalized;
+            Vector2 waypointCandidate = corner + outward * pathCornerMargin;
+
+            float distToCorner = Vector2.Distance(origin, waypointCandidate);
+            float distCornerToTarget = Vector2.Distance(waypointCandidate, target);
+
+            bool clearToCorner = distToCorner < 0.01f || !Physics2D.Raycast(origin, (waypointCandidate - origin).normalized, distToCorner, wallLayer);
+            bool clearFromCorner = distCornerToTarget < 0.01f || !Physics2D.Raycast(waypointCandidate, (target - waypointCandidate).normalized, distCornerToTarget, wallLayer);
+            if (!clearToCorner || !clearFromCorner) continue;
+
+            float totalDist = distToCorner + distCornerToTarget;
+
+            // Hysteresis: ถ้ามุมนี้คือมุมเดิมที่เคยเลือกไว้ (หรือใกล้เคียงมาก) ให้ได้เปรียบนิดหน่อยในการเปรียบเทียบ
+            // กันอาการ "เปลี่ยนใจ" สลับไปมาระหว่าง 2 มุมที่คะแนนใกล้เคียงกันมากทุกครั้งที่คำนวณใหม่ (ทุก pathRecalcInterval)
+            // ซึ่งทำให้เดินแกว่งซ้าย-ขวาไม่คืบหน้าไปทางไหนเลย (บั๊กที่เจอตอนทดสอบ) — ต้องดีกว่ามุมเดิมชัดเจนจริงๆ
+            // (มากกว่า pathStickBonus) ถึงจะยอมเปลี่ยนไปใช้มุมใหม่แทน
+            bool isSameAsPrevious = Vector2.Distance(waypointCandidate, previousWaypoint) < pathCornerMargin * 0.5f;
+            float effectiveDist = isSameAsPrevious ? totalDist * (1f - pathStickBonus) : totalDist;
+
+            if (effectiveDist < bestTotalDist)
+            {
+                bestTotalDist = effectiveDist;
+                best = waypointCandidate;
+                foundValidCorner = true;
+            }
+        }
+
+        // หามุมที่อ้อมได้จริงไม่เจอเลย (เช่นโดนล้อมหลายด้าน) -> fallback ให้ AvoidObstacles() ตอน ApplySteering
+        // จัดการเฉพาะหน้าต่อไปแทน ยังดีกว่าเดินตรงเข้าใส่กำแพงเฉยๆ
+        cachedWaypoint = foundValidCorner ? best : target;
+        hasCachedWaypoint = true;
+        return cachedWaypoint;
     }
 
     void ApplySteering(Vector2 desiredDir, float speed)
@@ -812,12 +1126,18 @@ public class EnemyAI : MonoBehaviour
     {
         stuckCheckTimer -= Time.deltaTime;
         stuckRecovTimer -= Time.deltaTime;
-        if (stuckRecovTimer > 0f) { rb.linearVelocity = stuckRecovDir * maxSpeed * 0.9f; return; }
+        isStuckRecovering = stuckRecovTimer > 0f;
+
+        if (isStuckRecovering) { rb.linearVelocity = stuckRecovDir * maxSpeed * 0.9f; return; }
         if (stuckCheckTimer <= 0f)
         {
             stuckCheckTimer = 0.5f;
             if (Vector2.Distance(transform.position, stuckCheckPos) < 5f)
-            { stuckRecovDir = FindOpenDir(); stuckRecovTimer = 0.7f; }
+            {
+                stuckRecovDir = FindOpenDir();
+                stuckRecovTimer = 0.7f;
+                isStuckRecovering = true;
+            }
             stuckCheckPos = transform.position;
         }
     }
