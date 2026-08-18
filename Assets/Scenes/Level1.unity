@@ -324,7 +324,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 30753a0e97ca56b4582c9665b7f7e664, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::TopDownTacticalAI.CameraSystem.CameraFollow
-  Target: {fileID: 0}
+  Target: {fileID: 281270579}
   SmoothTime: 0.15
   Offset: {x: 0, y: 0, z: -10}
   UseBounds: 1
