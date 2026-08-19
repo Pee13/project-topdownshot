@@ -163,12 +163,21 @@ namespace TopDownTacticalAI.Core
                     PatrolSpeed *= 1.2f;
                     break;
 
+                case EnemyRole.Support:
+                    MaxAttackRange = 8f; // ยืนแนวหลัง
+                    PreferredMinRange = 5f; // รักษาระยะห่างจากศัตรู
+                    DangerRange = 6f; // ตกใจง่าย ถอยหาที่กำบังไว
+                    CoverSearchRadius *= 1.5f; // กวาดสายตาหาที่กำบังได้กว้างขึ้น
+                    ChaseSpeed *= 0.8f; // ไม่เน้นวิ่งไล่ล่า
+                    DodgeDetectRadius *= 1.2f; // ระวังตัวสูง หลบกระสุนไว
+                    PersonalSpace = 0.5f; // ลดระยะเว้นห่างจากเพื่อนลง (ยอมยืนเบียดได้เพื่อหลบหลังแทงก์หรือเข้าไปฮีล)
+                    break;
+
                 case EnemyRole.Custom:
                 default:
                     break; // ไม่ปรับอะไร ใช้ค่าที่ตั้งเองทั้งหมด
             }
         }
-
         private void Awake()
         {
             ApplyRolePreset();
