@@ -11,6 +11,7 @@ namespace TopDownTacticalAI.Core
         Search,
         Combat,
         Cover,
-        Dodge
+        Dodge,
+        FollowTank
     }
 }
