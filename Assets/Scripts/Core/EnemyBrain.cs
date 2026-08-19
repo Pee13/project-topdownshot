@@ -326,6 +326,10 @@ namespace TopDownTacticalAI.Core
 
         private void Update()
         {
+            // กันพัง: ถ้า Awake() ยังไม่รันจบ (เช่นมี Error เกิดขึ้นระหว่างทาง) หรือ object ถูกทำลายไปแล้ว
+            // ให้ข้ามเฟรมนี้ไปเลย แทนที่จะโยน NullReferenceException สแปมรัวๆ ทุกเฟรม
+            if (_blackboard == null || _stateMachine == null || _vision == null) return;
+
             float dt = Time.deltaTime;
 
             // 0) ซิงค์ HP ล่าสุดจาก Health component (ถ้ามี)
@@ -438,17 +442,21 @@ namespace TopDownTacticalAI.Core
 
         private void FixedUpdate()
         {
+            if (_stateMachine == null) return;
             _stateMachine.FixedTick(Time.fixedDeltaTime);
         }
 
         public Blackboard GetBlackboard() => _blackboard;
-        public EnemyState GetCurrentState() => _stateMachine.CurrentStateType;
+        public EnemyState GetCurrentState() => _stateMachine != null ? _stateMachine.CurrentStateType : EnemyState.Patrol;
 
         private string _lastDecisionReason = "";
 
         /// <summary>ข้อมูลสรุปสถานะ AI ณ ปัจจุบัน สำหรับแสดงผล Debug/HUD</summary>
         public AIDebugInfo GetDebugInfo()
         {
+            // กันพัง: ถ้า Awake() ยังไม่รันจบ หรือ object ถูกทำลายไปแล้ว คืนค่าเปล่าแทนการโยน Exception
+            if (_stateMachine == null || _blackboard == null) return default;
+
             return new AIDebugInfo
             {
                 State = _stateMachine.CurrentStateType,
