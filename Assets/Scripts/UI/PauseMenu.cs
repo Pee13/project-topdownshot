@@ -22,6 +22,17 @@ namespace TopDownTacticalAI.UI
 
         public bool IsPaused { get; private set; }
 
+        private void Start()
+        {
+            // ปิด Panel ทั้งหมดให้อัตโนมัติตอนเริ่มฉาก กันลืมปิดเองใน Editor (Panel ที่สร้างใหม่ Unity จะเปิดไว้
+            // เป็น Active โดย Default เสมอ ถ้าไม่ปิดเอง จะโผล่ขึ้นมาทันทีตั้งแต่เข้าเล่นด่าน ทั้งที่ยังไม่ได้กด Esc)
+            if (pausePanel != null) pausePanel.SetActive(false);
+            if (settingsPanel != null) settingsPanel.SetActive(false);
+            if (quitConfirmPanel != null) quitConfirmPanel.SetActive(false);
+            IsPaused = false;
+            Time.timeScale = 1f;
+        }
+
         private void Update()
         {
             if (Input.GetKeyDown(KeyCode.Escape))
