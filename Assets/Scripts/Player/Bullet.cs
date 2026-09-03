@@ -3,17 +3,20 @@ using UnityEngine;
 namespace TopDownTacticalAI.Player
 {
     /// <summary>
-    /// พฤติกรรมกระสุน: ทำดาเมจเมื่อชนเป้าหมายที่มี Health แล้ว "ปักค้าง" อยู่ตรงจุดที่ชน
-    /// (แทนที่จะหายไปทันที) เหมือนกระสุนปักเข้าไปในกำแพง/ตัวละครจริงๆ
-    /// แล้วค่อยลบตัวเองออกหลังจากปักอยู่สักพัก (กันกระสุนสะสมเกลื่อนฉากตลอดไป)
+    /// พฤติกรรมกระสุน: พุ่งไปข้างหน้า ทำดาเมจ แล้ว "ปักค้าง" อยู่ตรงจุดที่ชน
     /// </summary>
+    [RequireComponent(typeof(Rigidbody2D), typeof(Collider2D))]
     public class Bullet : MonoBehaviour
     {
-        public float Damage = 10f;
+        [Header("Bullet Movement & Damage")]
+        public float Speed = 180f; // ความเร็วพุ่ง
+        public float Damage = 25f;
+        
+        [Header("Duration Settings")]
         [Tooltip("อายุกระสุนถ้ายังไม่ชนอะไรเลย (บินไปเรื่อยๆ)")]
         public float LifeTime = 3f;
         [Tooltip("ระยะเวลาที่กระสุนจะ 'ปักค้าง' อยู่หลังชนอะไรสักอย่าง ก่อนจะหายไปจริงๆ")]
-        public float StickDuration = 5f;
+        public float StickDuration = 4f;
 
         private bool _hasHit;
         private Rigidbody2D _rb;
@@ -23,20 +26,44 @@ namespace TopDownTacticalAI.Player
         {
             _rb = GetComponent<Rigidbody2D>();
             _collider = GetComponent<Collider2D>();
+
+            if (_rb != null)
+            {
+                _rb.gravityScale = 0f;
+            }
         }
 
         private void Start()
         {
-            // ใช้ Invoke (ยกเลิกได้จริงด้วย CancelInvoke) แทน Destroy(gameObject, delay) ตรงๆ
-            // เพื่อให้ตอนปักค้างแล้ว เปลี่ยนกำหนดเวลาลบใหม่ได้ถูกต้อง ไม่ชนกับตัวจับเวลาเดิม
+            // พุ่งไปตามแกน Up ของหัวกระสุน
+            if (_rb != null)
+            {
+                _rb.linearVelocity = transform.up * Speed;
+            }
+
             Invoke(nameof(DestroySelf), LifeTime);
+        }
+
+        private void Update()
+        {
+            // อัปเดตตำแหน่งกรณี Rigidbody เป็น Kinematic
+            if (!_hasHit && (_rb == null || _rb.bodyType == RigidbodyType2D.Kinematic))
+            {
+                transform.position += transform.up * (Speed * Time.deltaTime);
+            }
         }
 
         private void OnTriggerEnter2D(Collider2D other)
         {
-            if (_hasHit) return; // กันชนซ้ำหลายครั้งในเฟรมเดียวกัน
+            if (_hasHit) return;
+
+            // บล็อกไม่ให้ชนตัวผู้เล่นเอง หรือชิ้นส่วนของผู้เล่น
+            if (other.CompareTag("Player") || other.gameObject.layer == LayerMask.NameToLayer("Player") || other.isTrigger) 
+                return;
+
             _hasHit = true;
 
+            // ทำดาเมจใส่เป้าหมายที่มี Health
             if (other.TryGetComponent(out Health health))
             {
                 health.TakeDamage(Damage);
@@ -48,21 +75,17 @@ namespace TopDownTacticalAI.Player
         /// <summary>หยุดกระสุนและ "ปัก" ค้างอยู่ตรงจุดชน แทนที่จะลบทิ้งทันที</summary>
         private void EmbedInto(Collider2D other)
         {
-            // หยุดการเคลื่อนที่ทันที
             if (_rb != null)
             {
                 _rb.linearVelocity = Vector2.zero;
                 _rb.bodyType = RigidbodyType2D.Kinematic;
             }
 
-            // ปิด Collider ตัวเองกันไปโดนซ้ำ/ชนอย่างอื่นต่อ
             if (_collider != null)
                 _collider.enabled = false;
 
-            // ฝากตัวเองไว้กับสิ่งที่โดนชน เผื่อสิ่งนั้นเคลื่อนที่ (เช่นปักติดตัวศัตรูที่ยังเดินต่อ)
             transform.SetParent(other.transform);
 
-            // ยกเลิกตัวจับเวลาเดิม (ตอนยังบินอยู่) แล้วตั้งเวลาลบใหม่นับจากตอนปักค้าง
             CancelInvoke(nameof(DestroySelf));
             Invoke(nameof(DestroySelf), StickDuration);
         }

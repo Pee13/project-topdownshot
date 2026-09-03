@@ -13,11 +13,18 @@ namespace TopDownTacticalAI.Player
     /// </summary>
     public class PlayerShoot : MonoBehaviour
     {
+        [Header("Bullet Setup")]
         public GameObject BulletPrefab;
         public Transform MuzzlePoint;
         public float FireRate = 4f;
-        public float BulletSpeed = 14f;
+        [Tooltip("ความเร็วกระสุน (ปรับให้เหมาะกับแมพสเกล 350 หน่วย)")]
+        public float BulletSpeed = 180f;
 
+        [Header("Aim Settings")]
+        [Tooltip("ชดเชยองศาการเล็ง: ถ้า Sprite วาดหันหัวขึ้นใส่ -90, ถ้าหันขวาใส่ 0, ถ้าหันลงใส่ 90")]
+        public float AngleOffset = -90f;
+
+        [Header("Sound")]
         [Tooltip("ระยะที่เสียงปืนไปถึง (ดังกว่าเสียงเดิน/วิ่งมาก)")]
         public float GunshotNoiseRadius = 14f;
 
@@ -49,19 +56,29 @@ namespace TopDownTacticalAI.Player
 
         private void AimAtMouse()
         {
+            if (_cam == null) _cam = Camera.main;
             if (_cam == null) return;
 
-            Vector3 mouseWorld = _cam.ScreenToWorldPoint(Input.mousePosition);
+            // ชดเชยระยะลึกของกล้องเพื่อให้ได้พิกัด World บนระนาบ 2D ที่ถูกต้อง
+            Vector3 mousePos = Input.mousePosition;
+            mousePos.z = -_cam.transform.position.z;
+            Vector3 mouseWorld = _cam.ScreenToWorldPoint(mousePos);
+
             Vector2 direction = ((Vector2)mouseWorld - (Vector2)transform.position).normalized;
-            float angle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg - 90f;
-            transform.rotation = Quaternion.Euler(0, 0, angle);
+            
+            // คำนวณมุมหมุนตามเมาส์พร้อมบวกชดเชย AngleOffset
+            float angle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg + AngleOffset;
+            transform.rotation = Quaternion.Euler(0f, 0f, angle);
         }
 
         private void Shoot()
         {
             if (BulletPrefab == null || MuzzlePoint == null) return;
 
+            // เสกกระสุนตามทิศทางและมุมของ MuzzlePoint
             GameObject bulletObj = Instantiate(BulletPrefab, MuzzlePoint.position, MuzzlePoint.rotation);
+            
+            // สั่งให้กระสุนพุ่งไปตามทิศทาง Up ของ MuzzlePoint (ตรงกับทิศที่หันหน้า)
             if (bulletObj.TryGetComponent(out Rigidbody2D rb))
             {
                 rb.linearVelocity = MuzzlePoint.up * BulletSpeed;

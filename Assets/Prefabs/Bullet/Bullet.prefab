@@ -12,7 +12,7 @@ GameObject:
   - component: {fileID: 2214545464699970401}
   - component: {fileID: 1810417942611538388}
   - component: {fileID: 1010046551458858921}
-  m_Layer: 13
+  m_Layer: 7
   m_Name: Bullet
   m_TagString: Bullet
   m_Icon: {fileID: 0}
@@ -29,7 +29,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0.7059908, w: 0.7082211}
   m_LocalPosition: {x: -0.2773, y: 3.793, z: 0}
-  m_LocalScale: {x: 0.04154544, y: 0.12538111, z: 1}
+  m_LocalScale: {x: 2.5, y: 5, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
@@ -81,10 +81,10 @@ SpriteRenderer:
   m_GlobalIlluminationMeshLod: 0
   m_SortingLayerID: 0
   m_SortingLayer: 0
-  m_SortingOrder: 0
+  m_SortingOrder: 50
   m_MaskInteraction: 0
-  m_Sprite: {fileID: -9095717837082945937, guid: 207ee8102dd4143d288186ef0be518ee, type: 3}
-  m_Color: {r: 1, g: 1, b: 1, a: 1}
+  m_Sprite: {fileID: -802075329198069470, guid: a67fe769dd77da146a92f315a60b56c2, type: 3}
+  m_Color: {r: 0.990566, g: 0.990566, b: 0.990566, a: 1}
   m_FlipX: 0
   m_FlipY: 0
   m_DrawMode: 0
@@ -105,7 +105,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c5639f75897629741a13b297833d3958, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::TopDownTacticalAI.Player.Bullet
-  Damage: 10
+  Speed: 150
+  Damage: 50
   LifeTime: 3
   StickDuration: 5
 --- !u!50 &1010046551458858921
