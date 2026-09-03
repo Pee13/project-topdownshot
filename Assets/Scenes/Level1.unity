@@ -983,7 +983,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 24876349657b43d41b21ffd547e2aeae, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::TopDownTacticalAI.Core.EnemyBrain
-  Role: 0
+  Role: 2
   PatrolWaypoints: []
   EyePoint: {fileID: 689152263}
   MuzzlePoint: {fileID: 689152263}
@@ -1553,7 +1553,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 24876349657b43d41b21ffd547e2aeae, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::TopDownTacticalAI.Core.EnemyBrain
-  Role: 0
+  Role: 5
   PatrolWaypoints: []
   EyePoint: {fileID: 917848781}
   MuzzlePoint: {fileID: 917848781}
@@ -3188,7 +3188,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 24876349657b43d41b21ffd547e2aeae, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::TopDownTacticalAI.Core.EnemyBrain
-  Role: 0
+  Role: 1
   PatrolWaypoints: []
   EyePoint: {fileID: 2022521682}
   MuzzlePoint: {fileID: 2022521682}
