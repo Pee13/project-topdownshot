@@ -1,50 +1,42 @@
 using UnityEngine;
-using UnityEngine.UI;
 using System.Collections.Generic;
-using TMPro;
 
 namespace TopDownTacticalAI.UI
 {
     /// <summary>
-    /// ตัวจัดการหน้า Settings ทั้งหมด: เสียง (Master/Music/SFX), หน้าจอ (ความละเอียด/Fullscreen), คุณภาพกราฟิก
-    /// บันทึกค่าอัตโนมัติผ่าน PlayerPrefs ทุกครั้งที่เปลี่ยน และโหลดค่าที่เคยตั้งไว้กลับมาอัตโนมัติตอนเริ่มเกม
+    /// Stores all settings values (audio/display/quality/extras) + Apply/Save/Load logic only.
+    /// Does NOT hold direct references to any Slider/Dropdown in any scene — because it is a cross-scene Singleton (DontDestroyOnLoad).
+    /// If it held direct references to one scene's UI, those references would be lost when that scene is unloaded, making it impossible
+    /// to use with a second Settings Panel (e.g. the one in the Pause Menu). This was fixed by separating the UI-binding
+    /// logic into SettingsPanelBinder.cs instead. SettingsPanelBinder can be attached to any number of panel instances across any scenes,
+    /// and they will all sync with this singleton automatically.
     ///
-    /// เป็น Singleton อยู่ข้ามฉาก (DontDestroyOnLoad) — สร้างแค่ตัวเดียวในฉาก MainMenu ก็พอ ไม่ต้องสร้างซ้ำในฉากอื่น
-    ///
-    /// วิธีติดตั้ง: สร้าง Empty GameObject ชื่อ "SettingsManager" ในฉาก MainMenu แปะสคริปต์นี้
-    /// แล้วลาก UI Element จาก Settings Panel มาใส่ในช่อง Inspector ให้ครบ (ดูรายละเอียดที่ README)
+    /// Setup: Create an empty GameObject named "SettingsManager" in the MainMenu scene and attach this script (no UI drag-in required).
+    /// For each UI set (MainMenu, Pause Menu), attach SettingsPanelBinder.cs to that panel instead.
     /// </summary>
     public class SettingsManager : MonoBehaviour
     {
         public static SettingsManager Instance { get; private set; }
 
-        [Header("── Audio UI (ลากจาก Settings Panel มาใส่) ──")]
-        public Slider masterVolumeSlider;
-        public Slider musicVolumeSlider;
-        public Slider sfxVolumeSlider;
-
-        [Header("── Display UI ──")]
-        public TMP_Dropdown resolutionDropdown;
-        public Toggle fullscreenToggle;
-        public TMP_Dropdown qualityDropdown;
-
-        [Header("── Gameplay Extras (Option เสริมที่แนะนำเพิ่ม) ──")]
-        [Tooltip("ความไวเมาส์ตอนเล็ง — เกมยิงมุมมองบนควรปรับความไวเมาส์ได้ เพราะแต่ละคนถนัดไม่เท่ากัน")]
-        public Slider mouseSensitivitySlider;
-        [Tooltip("สั่นกล้องตอนโดนตี/ยิง — บางคนเวียนหัวง่าย ควรปิดได้")]
-        public Toggle screenShakeToggle;
-        [Tooltip("แสดง FPS มุมจอ — มีประโยชน์ตอนทดสอบว่าเครื่องแรงพอไหม")]
-        public Toggle showFpsToggle;
-
-        // ── ค่าปัจจุบัน (อ่านได้จากสคริปต์อื่น เช่น CameraFollow อ่าน ScreenShakeEnabled ไปใช้) ──
+        // ── Current values (readable from other scripts, e.g. CameraFollow reads ScreenShakeEnabled) ──
         public float MasterVolume { get; private set; } = 1f;
         public float MusicVolume { get; private set; } = 0.7f;
         public float SFXVolume { get; private set; } = 1f;
         public float MouseSensitivity { get; private set; } = 1f;
         public bool ScreenShakeEnabled { get; private set; } = true;
         public bool ShowFps { get; private set; } = false;
+        public bool Fullscreen { get; private set; } = true;
+        public int QualityLevel { get; private set; }
+        public int ResolutionIndex { get; private set; }
 
-        private Resolution[] _availableResolutions;
+        // ── Graphics & Effects (delegated to GraphicsQualityManager) ──
+        public float EffectsQuality => GraphicsQualityManager.EffectsQuality;
+        public bool MenuVFXEnabled => GraphicsQualityManager.MenuVFXEnabled;
+        public bool BackgroundVFXEnabled => GraphicsQualityManager.BackgroundVFXEnabled;
+        public bool ScreenEffectsEnabled => GraphicsQualityManager.ScreenEffectsEnabled;
+
+        public Resolution[] AvailableResolutions { get; private set; }
+
         private GameObject _fpsCounterObj;
 
         private void Awake()
@@ -55,36 +47,17 @@ namespace TopDownTacticalAI.UI
                 return;
             }
             Instance = this;
-            // ถอดตัวเองออกจากพ่อแม่ก่อนเสมอ (เช่นถ้าเผลอวางเป็นลูกของ Canvas) เพราะ DontDestroyOnLoad
-            // ใช้ได้เฉพาะกับ GameObject ที่เป็น "ราก" (Root) เท่านั้น ไม่งั้นจะขึ้น Warning และไม่ทำงานจริง
-            // (การถอดออกจาก Canvas ไม่กระทบ Reference ของ Slider/Dropdown ที่ลากไว้ใน Inspector แต่อย่างใด)
+            // Detach from any parent (e.g. if accidentally placed as a child of Canvas) because DontDestroyOnLoad
+            // only works on root GameObjects; otherwise it will warn and not function correctly.
             transform.SetParent(null);
             DontDestroyOnLoad(gameObject);
 
+            // Initialize graphics quality settings before loading PlayerPrefs
+            GraphicsQualityManager.Initialize();
+
+            AvailableResolutions = Screen.resolutions;
             LoadSettings();
-        }
-
-        private void Start()
-        {
-            SetupResolutionDropdown();
-            SetupQualityDropdown();
-            RefreshUIFromCurrentValues();
             ApplyAll();
-            WireUpListeners();
-        }
-
-        /// <summary>ผูก Event ของ UI แต่ละตัวให้เรียกฟังก์ชันตั้งค่าอัตโนมัติ (เผื่อไม่ได้ผูกผ่าน Inspector เอง)</summary>
-        private void WireUpListeners()
-        {
-            if (masterVolumeSlider != null) masterVolumeSlider.onValueChanged.AddListener(SetMasterVolume);
-            if (musicVolumeSlider != null) musicVolumeSlider.onValueChanged.AddListener(SetMusicVolume);
-            if (sfxVolumeSlider != null) sfxVolumeSlider.onValueChanged.AddListener(SetSFXVolume);
-            if (mouseSensitivitySlider != null) mouseSensitivitySlider.onValueChanged.AddListener(SetMouseSensitivity);
-            if (screenShakeToggle != null) screenShakeToggle.onValueChanged.AddListener(SetScreenShake);
-            if (showFpsToggle != null) showFpsToggle.onValueChanged.AddListener(SetShowFps);
-            if (fullscreenToggle != null) fullscreenToggle.onValueChanged.AddListener(SetFullscreen);
-            if (resolutionDropdown != null) resolutionDropdown.onValueChanged.AddListener(SetResolution);
-            if (qualityDropdown != null) qualityDropdown.onValueChanged.AddListener(SetQuality);
         }
 
         // ── Audio ──
@@ -139,52 +112,107 @@ namespace TopDownTacticalAI.UI
         }
 
         // ── Display ──
-        private void SetupResolutionDropdown()
-        {
-            if (resolutionDropdown == null) return;
-
-            _availableResolutions = Screen.resolutions;
-            resolutionDropdown.ClearOptions();
-
-            var options = new List<string>();
-            int currentIndex = 0;
-            for (int i = 0; i < _availableResolutions.Length; i++)
-            {
-                var r = _availableResolutions[i];
-                options.Add($"{r.width} x {r.height} @{Mathf.RoundToInt((float)r.refreshRateRatio.value)}Hz");
-                if (r.width == Screen.currentResolution.width && r.height == Screen.currentResolution.height)
-                    currentIndex = i;
-            }
-            resolutionDropdown.AddOptions(options);
-            resolutionDropdown.SetValueWithoutNotify(PlayerPrefs.GetInt("ResolutionIndex", currentIndex));
-        }
-
-        private void SetupQualityDropdown()
-        {
-            if (qualityDropdown == null) return;
-            qualityDropdown.ClearOptions();
-            qualityDropdown.AddOptions(new List<string>(QualitySettings.names));
-        }
-
         public void SetResolution(int index)
         {
-            if (_availableResolutions == null || index < 0 || index >= _availableResolutions.Length) return;
-            var r = _availableResolutions[index];
-            Screen.SetResolution(r.width, r.height, Screen.fullScreen);
-            PlayerPrefs.SetInt("ResolutionIndex", index);
+            if (AvailableResolutions == null || index < 0 || index >= AvailableResolutions.Length) return;
+            ResolutionIndex = index;
+            var r = AvailableResolutions[index];
+            Screen.SetResolution(r.width, r.height, Fullscreen);
             SaveSettings();
         }
 
         public void SetFullscreen(bool isFullscreen)
         {
+            Fullscreen = isFullscreen;
             Screen.fullScreen = isFullscreen;
             SaveSettings();
         }
 
         public void SetQuality(int index)
         {
+            QualityLevel = index;
             QualitySettings.SetQualityLevel(index, true);
             SaveSettings();
+        }
+
+        // ── Graphics & Effects ──
+        public void SetEffectsQuality(float v)
+        {
+            GraphicsQualityManager.SetEffectsQuality(v);
+        }
+
+        public void SetMenuVFX(bool enabled)
+        {
+            GraphicsQualityManager.SetMenuVFXEnabled(enabled);
+        }
+
+        public void SetBackgroundVFX(bool enabled)
+        {
+            GraphicsQualityManager.SetBackgroundVFXEnabled(enabled);
+        }
+
+        public void SetScreenEffects(bool enabled)
+        {
+            GraphicsQualityManager.SetScreenEffectsEnabled(enabled);
+        }
+
+        /// <summary>Returns all available screen resolutions as ready-to-use text labels for SettingsPanelBinder to populate the Dropdown.
+        /// Deduplicates by width+height (keeps the highest refresh rate for each), and sorts from highest to lowest so users see 1920x1080 first.</summary>
+        public List<string> GetResolutionOptionLabels()
+        {
+            // Group by width+height, keep the entry with the highest refresh rate
+            var bestBySize = new System.Collections.Generic.Dictionary<(int w, int h), Resolution>();
+            if (AvailableResolutions != null)
+            {
+                foreach (var r in AvailableResolutions)
+                {
+                    var key = (r.width, r.height);
+                    if (!bestBySize.TryGetValue(key, out var existing) ||
+                        r.refreshRateRatio.value > existing.refreshRateRatio.value)
+                    {
+                        bestBySize[key] = r;
+                    }
+                }
+            }
+
+            // If Screen.resolutions returned nothing (e.g. running headless or in some editor setups),
+            // fall back to a common list of resolutions so the user still has choices.
+            if (bestBySize.Count == 0)
+            {
+                int[] commonWidths = { 3840, 2560, 1920, 1680, 1600, 1440, 1366, 1280, 1176, 1024, 800, 640 };
+                int[] commonHeights = { 2160, 1440, 1080, 1050, 900, 900, 768, 720, 664, 768, 600, 480 };
+                for (int i = 0; i < commonWidths.Length; i++)
+                {
+                    bestBySize[(commonWidths[i], commonHeights[i])] = new Resolution
+                    {
+                        width = commonWidths[i],
+                        height = commonHeights[i],
+                        refreshRateRatio = new RefreshRate { numerator = 60000, denominator = 1000 }
+                    };
+                }
+            }
+
+            // Sort by total pixel count, descending (largest first) so the dropdown shows
+            // the highest resolution at the top.
+            var sorted = new List<Resolution>(bestBySize.Values);
+            sorted.Sort((a, b) => (b.width * b.height).CompareTo(a.width * b.height));
+
+            var options = new List<string>();
+            foreach (var r in sorted)
+                options.Add($"{r.width} x {r.height} @{Mathf.RoundToInt((float)r.refreshRateRatio.value)}Hz");
+            return options;
+        }
+
+        /// <summary>
+        /// Returns the list of graphics quality levels as labels, ordered from highest quality
+        /// (Ultra) at the top to lowest (Very Low) at the bottom — matching how a user expects
+        /// a "best → worst" dropdown to read. Unity's QualitySettings.names is the opposite.
+        /// </summary>
+        public List<string> GetQualityOptionLabels()
+        {
+            var names = new List<string>(QualitySettings.names);
+            names.Reverse(); // Ultra → ... → Very Low
+            return names;
         }
 
         // ── Save / Load (PlayerPrefs) ──
@@ -196,8 +224,9 @@ namespace TopDownTacticalAI.UI
             PlayerPrefs.SetFloat("MouseSensitivity", MouseSensitivity);
             PlayerPrefs.SetInt("ScreenShake", ScreenShakeEnabled ? 1 : 0);
             PlayerPrefs.SetInt("ShowFps", ShowFps ? 1 : 0);
-            PlayerPrefs.SetInt("Fullscreen", Screen.fullScreen ? 1 : 0);
-            PlayerPrefs.SetInt("QualityLevel", QualitySettings.GetQualityLevel());
+            PlayerPrefs.SetInt("Fullscreen", Fullscreen ? 1 : 0);
+            PlayerPrefs.SetInt("QualityLevel", QualityLevel);
+            PlayerPrefs.SetInt("ResolutionIndex", ResolutionIndex);
             PlayerPrefs.Save();
         }
 
@@ -209,28 +238,27 @@ namespace TopDownTacticalAI.UI
             MouseSensitivity = PlayerPrefs.GetFloat("MouseSensitivity", 1f);
             ScreenShakeEnabled = PlayerPrefs.GetInt("ScreenShake", 1) == 1;
             ShowFps = PlayerPrefs.GetInt("ShowFps", 0) == 1;
+            Fullscreen = PlayerPrefs.GetInt("Fullscreen", Screen.fullScreen ? 1 : 0) == 1;
+            QualityLevel = PlayerPrefs.GetInt("QualityLevel", QualitySettings.GetQualityLevel());
+
+            int defaultResIndex = 0;
+            for (int i = 0; i < AvailableResolutions.Length; i++)
+            {
+                if (AvailableResolutions[i].width == Screen.currentResolution.width &&
+                    AvailableResolutions[i].height == Screen.currentResolution.height)
+                { defaultResIndex = i; break; }
+            }
+            ResolutionIndex = PlayerPrefs.GetInt("ResolutionIndex", defaultResIndex);
         }
 
-        private void RefreshUIFromCurrentValues()
-        {
-            if (masterVolumeSlider != null) masterVolumeSlider.SetValueWithoutNotify(MasterVolume);
-            if (musicVolumeSlider != null) musicVolumeSlider.SetValueWithoutNotify(MusicVolume);
-            if (sfxVolumeSlider != null) sfxVolumeSlider.SetValueWithoutNotify(SFXVolume);
-            if (mouseSensitivitySlider != null) mouseSensitivitySlider.SetValueWithoutNotify(MouseSensitivity);
-            if (screenShakeToggle != null) screenShakeToggle.SetIsOnWithoutNotify(ScreenShakeEnabled);
-            if (showFpsToggle != null) showFpsToggle.SetIsOnWithoutNotify(ShowFps);
-            if (fullscreenToggle != null) fullscreenToggle.SetIsOnWithoutNotify(PlayerPrefs.GetInt("Fullscreen", Screen.fullScreen ? 1 : 0) == 1);
-            if (qualityDropdown != null) qualityDropdown.SetValueWithoutNotify(PlayerPrefs.GetInt("QualityLevel", QualitySettings.GetQualityLevel()));
-        }
-
-        /// <summary>เรียกค่าที่โหลดมาทั้งหมดไปใช้จริงตอนเริ่มเกม (Apply ทุกอย่างพร้อมกันครั้งเดียว)</summary>
+        /// <summary>Applies all loaded values for real at game start (applies everything at once).</summary>
         private void ApplyAll()
         {
             AudioListener.volume = MasterVolume;
             AudioManager.Instance?.SetMusicVolume(MusicVolume);
             AudioManager.Instance?.SetSFXVolume(SFXVolume);
-            Screen.fullScreen = PlayerPrefs.GetInt("Fullscreen", Screen.fullScreen ? 1 : 0) == 1;
-            QualitySettings.SetQualityLevel(PlayerPrefs.GetInt("QualityLevel", QualitySettings.GetQualityLevel()), true);
+            Screen.fullScreen = Fullscreen;
+            QualitySettings.SetQualityLevel(QualityLevel, true);
             if (ShowFps) EnsureFpsCounter();
         }
     }

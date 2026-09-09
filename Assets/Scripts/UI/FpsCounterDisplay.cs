@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace TopDownTacticalAI.UI
 {
-    /// <summary>แสดงค่า FPS มุมบนซ้ายของจอ (สร้างอัตโนมัติโดย SettingsManager เมื่อเปิด Option "Show FPS")</summary>
+    /// <summary>Displays FPS in the top-left corner of the screen (created automatically by SettingsManager when "Show FPS" option is enabled)</summary>
     public class FpsCounterDisplay : MonoBehaviour
     {
         private float _deltaTime;

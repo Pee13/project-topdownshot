@@ -7,7 +7,8 @@
 
 ไฟล์ทั้งหมดในโฟลเดอร์นี้:
   AudioManager.cs         - จัดการเสียง Music/SFX กลาง (Singleton ข้ามฉาก)
-  SettingsManager.cs      - จัดการหน้า Settings ทั้งหมด (เสียง/จอ/คุณภาพ/เสริม) + บันทึกอัตโนมัติ
+  SettingsManager.cs      - เก็บ "ค่า" การตั้งค่าทั้งหมด + Apply/Save/Load (Singleton ข้ามฉาก ไม่ถือ UI เอง)
+  SettingsPanelBinder.cs  - แปะที่ Settings Panel แต่ละชุด เชื่อม UI ของ Panel นั้นกับ SettingsManager อัตโนมัติ
   FpsCounterDisplay.cs    - แสดง FPS มุมจอ (สร้างอัตโนมัติเมื่อเปิด Option "Show FPS")
   GameDifficulty.cs       - เก็บระดับความยากที่เลือกไว้ (Static Class ไม่ต้องแปะกับ GameObject)
   MainMenuController.cs   - ตัวควบคุมหน้าเมนูหลัก
@@ -50,7 +51,13 @@
 
 ขั้นตอนที่ 4: สร้าง Panel "ตั้งค่า" (Settings) — ลูกของ Canvas เช่นกัน (ซ่อนไว้ก่อน)
 --------------------------------------------------------------------------------
-สร้าง Panel ใหม่ชื่อ "SettingsPanel" ใส่ Element เหล่านี้ (ทุกตัวเป็น UI มาตรฐานของ Unity):
+** อัปเดตสำคัญ: ตอนนี้ Settings Panel แต่ละชุด (มีได้หลายชุด เช่น ชุดในเมนูหลัก + ชุดใน Pause Menu)
+   ต้องแปะสคริปต์ SettingsPanelBinder.cs ไว้ที่ตัว Panel เอง แล้วลาก UI ของ Panel ชุดนั้นเข้าไปเฉพาะของมัน
+   ไม่ใช่ลากไปใส่ที่ SettingsManager แบบเดิมอีกต่อไป (SettingsManager เก็บแค่ค่า ไม่ถือ Reference ของ UI แล้ว)
+   ทำให้สร้าง Settings Panel กี่ชุดก็ได้ ทุกชุดจะซิงค์ค่ากันเองอัตโนมัติ ไม่มีปัญหา Reference หลุดหายอีก **
+
+สร้าง Panel ใหม่ชื่อ "SettingsPanel" แปะสคริปต์ SettingsPanelBinder.cs ที่ตัว Panel นี้เอง
+ใส่ Element เหล่านี้ (ทุกตัวเป็น UI มาตรฐานของ Unity):
 
   เสียง:
     - Slider "MasterVolumeSlider"   (Min Value=0, Max Value=1)
@@ -71,10 +78,11 @@
     - Button "กลับ" -> OnClick() -> ลาก MainMenuController -> เลือก OnSettingsBackButton()
 
 จากนั้นลาก Slider/Dropdown/Toggle ทั้งหมดข้างต้น ไปใส่ในช่องที่ตรงชื่อกันใน Inspector
-ของ GameObject "SettingsManager" (ช่องชื่อ Master Volume Slider, Music Volume Slider ฯลฯ)
-** ไม่ต้องผูก OnValueChanged() เองใน Inspector ก็ได้ สคริปต์ผูกให้อัตโนมัติใน WireUpListeners() **
+ของ GameObject "SettingsPanel" เอง (ช่อง SettingsPanelBinder ที่เพิ่งแปะไป ไม่ใช่ SettingsManager)
+** ไม่ต้องผูก OnValueChanged() เองใน Inspector ก็ได้ สคริปต์ผูกให้อัตโนมัติตอน Panel เปิดขึ้นครั้งแรก **
 
 ลาก SettingsPanel มาใส่ช่อง "Settings Panel" ใน Inspector ของ MainMenuController ด้วย
+(ทำ Settings Panel ชุดที่ 2 สำหรับ Pause Menu แบบเดียวกันนี้ซ้ำอีกรอบ — ดูขั้นตอนที่ 7)
 
 
 ขั้นตอนที่ 5: สร้าง Panel "ยืนยันออกจากเกม" (ไม่บังคับ แต่แนะนำ)
@@ -109,7 +117,8 @@ Panel เล็กๆ ถามว่า "แน่ใจนะว่าจะ�
      - "เล่นด่านนี้ใหม่"  -> PauseMenu -> RestartLevel()
      - "กลับเมนูหลัก"    -> PauseMenu -> ReturnToMainMenu()
      - "ออกจากเกม"       -> PauseMenu -> OnQuitButton()
-5) ทำ Panel Settings ซ้ำเหมือนขั้นตอนที่ 4 อีกชุด (หรือจะ Copy จากฉาก MainMenu มาวางก็ได้)
+5) ทำ Panel Settings ซ้ำเหมือนขั้นตอนที่ 4 อีกชุด (Copy Panel เดิมจากฉาก MainMenu มาวางก็ได้ เร็วกว่า
+   แต่ SettingsPanelBinder.cs ที่ติดมากับ Panel ก็จะติดมาด้วยอัตโนมัติ ไม่ต้องแปะใหม่ ใช้ตัวเดิมที่ Copy มาได้เลย)
    ลากมาใส่ช่อง "Settings Panel" ของ PauseMenu แทน
 6) ลาก PausePanel มาใส่ช่อง "Pause Panel" ใน Inspector ของ PauseMenu
 

@@ -1,0 +1,68 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &6011558826654183123
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2165364433326084413}
+  - component: {fileID: 8699067194955371252}
+  m_Layer: 0
+  m_Name: MainMenuController 1
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &2165364433326084413
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6011558826654183123}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 439.84235, y: 295.41718, z: 10}
+  m_LocalScale: {x: 0.8894549, y: 0.8894549, z: 0.8894549}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &8699067194955371252
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6011558826654183123}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cc879fad513cea1428f7d83dd8c56400, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TopDownTacticalAI.UI.MainMenuController
+  theme: {fileID: 0}
+  backgroundImage: {fileID: 5278826367626066737, guid: bebf9bbdfd9394542ad43dda4fa1d036, type: 3}
+  backgroundImageComponent: {fileID: 0}
+  mainMenuPanel: {fileID: 0}
+  settingsPanel: {fileID: 0}
+  quitConfirmPanel: {fileID: 0}
+  controlsPanel: {fileID: 0}
+  creditsPanel: {fileID: 0}
+  playButton: {fileID: 0}
+  settingsButton: {fileID: 0}
+  controlsButton: {fileID: 0}
+  creditsButton: {fileID: 0}
+  quitButton: {fileID: 0}
+  quitConfirmYesButton: {fileID: 0}
+  quitConfirmNoButton: {fileID: 0}
+  settingsBackButton: {fileID: 0}
+  controlsBackButton: {fileID: 0}
+  creditsBackButton: {fileID: 0}
+  levelSelectSceneName: LevelSelect
+  buttonClickSound: {fileID: 0}
+  panelOpenSound: {fileID: 0}
+  panelCloseSound: {fileID: 0}

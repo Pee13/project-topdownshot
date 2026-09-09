@@ -1,0 +1,120 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e2aa64272fc26a64bbcff3f3e7e41a39, type: 3}
+  m_Name: DefaultUITheme
+  m_EditorClassIdentifier: Assembly-CSharp::TopDownTacticalAI.UI.Themes.UITheme
+  primaryColor: {r: 0.2, g: 0.6, b: 1, a: 1}
+  secondaryColor: {r: 0.9, g: 0.3, b: 0.2, a: 1}
+  accentColor: {r: 1, g: 0.85, b: 0.2, a: 1}
+  backgroundColor: {r: 0.1, g: 0.12, b: 0.18, a: 0.95}
+  panelColor: {r: 0.15, g: 0.18, b: 0.25, a: 0.98}
+  textColor: {r: 1, g: 1, b: 1, a: 1}
+  textDisabledColor: {r: 0.5, g: 0.5, b: 0.5, a: 1}
+  borderColor: {r: 0.3, g: 0.4, b: 0.6, a: 0.5}
+  buttonNormal: {r: 0.2, g: 0.3, b: 0.5, a: 1}
+  buttonHighlighted: {r: 0.3, g: 0.5, b: 0.8, a: 1}
+  buttonPressed: {r: 0.15, g: 0.25, b: 0.4, a: 1}
+  buttonDisabled: {r: 0.2, g: 0.2, b: 0.3, a: 0.5}
+  mainFont: {fileID: 0}
+  headerFont: {fileID: 0}
+  defaultFontSize: 28
+  headerFontSize: 48
+  buttonFontSize: 32
+  buttonBackground: {fileID: 0}
+  buttonBackgroundHover: {fileID: 0}
+  buttonBackgroundPressed: {fileID: 0}
+  panelBackground: {fileID: 0}
+  sliderTrack: {fileID: 0}
+  sliderHandle: {fileID: 0}
+  toggleBackground: {fileID: 0}
+  toggleCheckmark: {fileID: 0}
+  fadeDuration: 0.25
+  slideDuration: 0.3
+  buttonPressScale: 0.95
+  buttonHoverScale: 1.05
+  fadeCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  slideCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  scaleCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  panelPadding: 30
+  buttonSpacing: 15
+  elementSpacing: 20
+  defaultButtonSize: {x: 300, y: 70}
+  largeButtonSize: {x: 400, y: 90}

@@ -1,0 +1,60 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bf3da35a3ffcd1c40ac1526a42889f47, type: 3}
+  m_Name: MusicPlaylist
+  m_EditorClassIdentifier: Assembly-CSharp::TopDownTacticalAI.UI.Music.MusicPlaylistSO
+  tracks:
+  - context: 0
+    sceneName: day
+    clip: {fileID: 8300000, guid: 7dc0be54d6a9c1140bc5b4307a0643b9, type: 3}
+    loop: 1
+    volumeMultiplier: 1
+  - context: 3
+    sceneName: 
+    clip: {fileID: 8300000, guid: 8bc126bca72624d4db11323280a5a9ea, type: 3}
+    loop: 1
+    volumeMultiplier: 1
+  - context: 3
+    sceneName: 
+    clip: {fileID: 8300000, guid: e815ca3edcaf979469be078ab64c52b3, type: 3}
+    loop: 1
+    volumeMultiplier: 1
+  - context: 0
+    sceneName: night
+    clip: {fileID: 8300000, guid: 86306acab39a0334a917139e7d0e73e9, type: 3}
+    loop: 1
+    volumeMultiplier: 1
+  defaultCrossfadeDuration: 2
+  crossfadeCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
