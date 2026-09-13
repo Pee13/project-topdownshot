@@ -130,8 +130,8 @@ namespace TopDownTacticalAI.UI
                 AudioManager.Instance.PlayContext(MusicContext.LevelSelect);
             }
 
-            // Start neon VFX on level select panel
-            _neonVFX?.Play();
+            // Neon VFX intentionally disabled on level select for readability.
+            _neonVFX?.Stop();
         }
 
         private void OnEnable()

@@ -147,8 +147,8 @@ namespace TopDownTacticalAI.UI
                 }
             }
 
-            // Start neon VFX on main menu panel
-            _neonVFX?.Play();
+            // Neon menu VFX intentionally disabled for a clean, readable menu.
+            _neonVFX?.Stop();
         }
 
         /// <summary>
@@ -333,8 +333,9 @@ namespace TopDownTacticalAI.UI
         private void PlayVFXFor(AnimatedPanel panel)
         {
             if (panel == null) return;
-            if (panel == mainMenuPanel && _neonVFX != null) _neonVFX.Play();
-            else if (panel == settingsPanel && _settingsNeonVFX != null) _settingsNeonVFX.Play();
+            // Main-menu and settings glow intentionally disabled for clean UI readability.
+            if (panel == mainMenuPanel && _neonVFX != null) _neonVFX.Stop();
+            else if (panel == settingsPanel && _settingsNeonVFX != null) _settingsNeonVFX.Stop();
             else if (panel == quitConfirmPanel) { /* no VFX on confirm */ }
             else if (panel == controlsPanel) { /* optional */ }
             else if (panel == creditsPanel) { /* optional */ }
