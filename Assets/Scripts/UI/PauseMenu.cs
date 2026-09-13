@@ -1,102 +1,341 @@
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using UnityEngine.UI;
+using TMPro;
+using TopDownTacticalAI.UI.Themes;
+using TopDownTacticalAI.UI.Animation;
+using TopDownTacticalAI.UI.Components;
+using TopDownTacticalAI.UI.Music;
 
 namespace TopDownTacticalAI.UI
 {
     /// <summary>
-    /// เมนูหยุดเกมชั่วคราว (Pause Menu) — กด Esc ระหว่างเล่นเพื่อเปิด/ปิด (Option เสริมที่แนะนำเพิ่ม)
-    /// เกมยิงแบบนี้เล่นไปนานๆ ควรมีทางหยุดพัก/ปรับเสียง/ออกกลางเกมได้โดยไม่ต้อง Alt+F4
-    ///
-    /// วิธีติดตั้ง: แปะสคริปต์นี้ที่ Canvas ของฉากเกมจริง (ฉากที่มี Player/Enemy)
-    /// สร้าง Panel เมนู Pause ไว้ (เริ่มต้นซ่อนไว้) มีปุ่ม: เล่นต่อ / ตั้งค่า / เล่นด่านนี้ใหม่ / กลับเมนูหลัก / ออกจากเกม
+    /// Pause Menu controller - uses the new UI System.
+    /// Supports: Blur Background, Theme, Animation, Tabbed Settings Panel
+    /// Uses assets from Assets/UI/pause-menu/
     /// </summary>
     public class PauseMenu : MonoBehaviour
     {
-        [Header("── Panels ──")]
-        public GameObject pausePanel;
-        public GameObject settingsPanel;
-        public GameObject quitConfirmPanel;
+        [Header("── Theme ──")]
+        [Tooltip("UI theme to use")]
+        public UITheme theme;
 
-        [Header("── ชื่อ Scene เมนูหลัก ──")]
+        [Header("── Blur Effect ──")]
+        [Tooltip("Blur component for background (Optional)")]
+        public PauseMenuBlur pauseBlur;
+
+        [Header("── Panels (using AnimatedPanel) ──")]
+        [Tooltip("Main pause menu panel")]
+        public AnimatedPanel pausePanel;
+        [Tooltip("Settings panel (used with SettingsPanelController)")]
+        public AnimatedPanel settingsPanel;
+        [Tooltip("Quit confirmation panel")]
+        public AnimatedPanel quitConfirmPanel;
+
+        [Header("── Pause Menu Buttons ──")]
+        public Button resumeButton;
+        public Button settingsButton;
+        public Button restartButton;
+        public Button mainMenuButton;
+        public Button quitButton;
+
+        [Header("── Quit Confirm Buttons ──")]
+        public Button quitConfirmYesButton;
+        public Button quitConfirmNoButton;
+
+        [Header("── Settings Back Button ──")]
+        public Button settingsBackButton;
+
+        [Header("── Scene Names ──")]
         public string mainMenuSceneName = "MainMenu";
 
-        public bool IsPaused { get; private set; }
+        [Header("── Audio ──")]
+        public AudioClip buttonClickSound;
+        public AudioClip panelOpenSound;
+        public AudioClip panelCloseSound;
+        public AudioClip pauseSound;
+        public AudioClip resumeSound;
 
-        private void Start()
+        [Header("── Music ──")]
+        public MusicPlaylistSO musicPlaylist;
+
+        private AudioSource _audioSource;
+        private AnimatedPanel _currentPanel;
+        private bool _isPaused = false;
+        private SettingsPanelController _settingsController;
+        private NeonMenuVFX _neonVFX;
+
+        public bool IsPaused => _isPaused;
+
+        private void Awake()
         {
-            // ปิด Panel ทั้งหมดให้อัตโนมัติตอนเริ่มฉาก กันลืมปิดเองใน Editor (Panel ที่สร้างใหม่ Unity จะเปิดไว้
-            // เป็น Active โดย Default เสมอ ถ้าไม่ปิดเอง จะโผล่ขึ้นมาทันทีตั้งแต่เข้าเล่นด่าน ทั้งที่ยังไม่ได้กด Esc)
-            if (pausePanel != null) pausePanel.SetActive(false);
-            if (settingsPanel != null) settingsPanel.SetActive(false);
-            if (quitConfirmPanel != null) quitConfirmPanel.SetActive(false);
-            IsPaused = false;
+            _audioSource = GetComponent<AudioSource>();
+            if (_audioSource == null) _audioSource = gameObject.AddComponent<AudioSource>();
+            _audioSource.playOnAwake = false;
+
+            // Get SettingsPanelController if exists on settingsPanel
+            if (settingsPanel != null)
+                _settingsController = settingsPanel.GetComponent<SettingsPanelController>();
+
+            ApplyTheme();
+            SetupButtonListeners();
+
+            // Add NeonMenuVFX to pause panel if not present
+            if (pausePanel != null)
+            {
+                _neonVFX = pausePanel.GetComponent<NeonMenuVFX>();
+                if (_neonVFX == null) _neonVFX = pausePanel.gameObject.AddComponent<NeonMenuVFX>();
+            }
+
+            // Initially hide all panels
+            HideAllPanelsInstant();
+            _isPaused = false;
             Time.timeScale = 1f;
         }
 
         private void Update()
         {
+            // ESC to toggle pause (only when not in settings sub-menu)
             if (Input.GetKeyDown(KeyCode.Escape))
             {
-                if (IsPaused) Resume();
-                else Pause();
+                if (_currentPanel == settingsPanel && settingsPanel != null && settingsPanel.IsVisible)
+                {
+                    CloseSettingsBackToPause();
+                }
+                else if (_isPaused)
+                {
+                    Resume();
+                }
+                else
+                {
+                    Pause();
+                }
+            }
+        }
+
+        private void ApplyTheme()
+        {
+            if (theme == null) return;
+
+            // Apply style per button based on its function. This gives visual feedback about
+            // which actions are safe (Normal) vs. dangerous (Destructive — Quit, Yes-quit).
+            // Resume/Settings/Restart/Main Menu = Normal; Quit = Destructive;
+            // Yes (confirm quit) = Destructive; No (cancel) = Normal.
+            ApplyButtonStyle(resumeButton, UITheme.ButtonStyle.Normal);
+            ApplyButtonStyle(settingsButton, UITheme.ButtonStyle.Normal);
+            ApplyButtonStyle(restartButton, UITheme.ButtonStyle.Normal);
+            ApplyButtonStyle(mainMenuButton, UITheme.ButtonStyle.Normal);
+            ApplyButtonStyle(quitButton, UITheme.ButtonStyle.Destructive);
+
+            // Quit confirm sub-panel
+            ApplyButtonStyle(quitConfirmYesButton, UITheme.ButtonStyle.Destructive);
+            ApplyButtonStyle(quitConfirmNoButton, UITheme.ButtonStyle.Normal);
+
+            // Settings back button
+            ApplyButtonStyle(settingsBackButton, UITheme.ButtonStyle.Normal);
+
+            // Any other buttons we didn't enumerate above (e.g. inside the SettingsPanel prefab)
+            // still get the default Normal styling, so they don't look un-themed.
+            var styledSet = new System.Collections.Generic.HashSet<Button>
+            {
+                resumeButton, settingsButton, restartButton, mainMenuButton, quitButton,
+                quitConfirmYesButton, quitConfirmNoButton, settingsBackButton
+            };
+            foreach (var btn in GetComponentsInChildren<Button>(true))
+            {
+                if (btn != null && !styledSet.Contains(btn))
+                    theme.ApplyToButton(btn);
+            }
+
+            // Apply to settings panel if it has its own controller
+            if (_settingsController != null && _settingsController.theme == null)
+            {
+                _settingsController.theme = theme;
+            }
+        }
+
+        private void ApplyButtonStyle(Button button, UITheme.ButtonStyle style)
+        {
+            if (button == null || theme == null) return;
+            theme.ApplyToButton(button, style);
+        }
+
+        private void SetupButtonListeners()
+        {
+            // Pause Menu Buttons
+            AddListener(resumeButton, Resume);
+            AddListener(settingsButton, OpenSettingsFromPause);
+            AddListener(restartButton, RestartLevel);
+            AddListener(mainMenuButton, ReturnToMainMenu);
+            AddListener(quitButton, OnQuitButton);
+
+            // Quit Confirm
+            AddListener(quitConfirmYesButton, OnQuitConfirmYes);
+            AddListener(quitConfirmNoButton, OnQuitConfirmNo);
+
+            // Settings Back
+            AddListener(settingsBackButton, CloseSettingsBackToPause);
+        }
+
+        private void AddListener(Button button, System.Action action)
+        {
+            if (button != null)
+            {
+                button.onClick.AddListener(() =>
+                {
+                    PlaySound(buttonClickSound);
+                    action?.Invoke();
+                });
             }
         }
 
         public void Pause()
         {
-            IsPaused = true;
-            Time.timeScale = 0f; // หยุดเกม (ตัว AI/Physics ทุกอย่างจะหยุดตามไปด้วยเพราะอิง Time.deltaTime)
-            if (pausePanel != null) pausePanel.SetActive(true);
+            if (_isPaused) return;
+
+            _isPaused = true;
+            Time.timeScale = 0f;
+
+            // Enable blur
+            pauseBlur?.EnableBlur();
+
+            // Show pause panel
+            _currentPanel = pausePanel;
+            pausePanel?.Show();
+            PlaySound(pauseSound);
+
+            // Switch to Pause music context (seamless crossfade from Gameplay)
+            AudioManager.Instance?.PlayContext(MusicContext.Pause);
+
+            // Start neon VFX on the pause panel
+            _neonVFX?.Play();
         }
 
         public void Resume()
         {
-            IsPaused = false;
+            if (!_isPaused) return;
+
+            _isPaused = false;
             Time.timeScale = 1f;
-            if (pausePanel != null) pausePanel.SetActive(false);
-            if (settingsPanel != null) settingsPanel.SetActive(false);
-            if (quitConfirmPanel != null) quitConfirmPanel.SetActive(false);
+
+            // Disable blur
+            pauseBlur?.DisableBlur();
+
+            // Hide all panels
+            HideAllPanels();
+            PlaySound(resumeSound);
+
+            // Return to Gameplay music context
+            AudioManager.Instance?.PlayContext(MusicContext.Gameplay);
+
+            // Stop neon VFX on the pause panel
+            _neonVFX?.Stop();
         }
 
         public void OpenSettingsFromPause()
         {
-            if (pausePanel != null) pausePanel.SetActive(false);
-            if (settingsPanel != null) settingsPanel.SetActive(true);
+            if (!_isPaused) return;
+
+            // Hide pause panel, show settings panel
+            pausePanel?.Hide();
+            PlaySound(panelCloseSound);
+
+            settingsPanel?.Show();
+            PlaySound(panelOpenSound);
+            _currentPanel = settingsPanel;
         }
 
         public void CloseSettingsBackToPause()
         {
-            if (settingsPanel != null) settingsPanel.SetActive(false);
-            if (pausePanel != null) pausePanel.SetActive(true);
+            if (!_isPaused) return;
+
+            // Hide settings panel, show pause panel
+            settingsPanel?.Hide();
+            PlaySound(panelCloseSound);
+
+            pausePanel?.Show();
+            PlaySound(panelOpenSound);
+            _currentPanel = pausePanel;
         }
 
-        /// <summary>เล่นด่านปัจจุบันใหม่ตั้งแต่ต้น (โหลด Scene เดิมซ้ำ)</summary>
         public void RestartLevel()
         {
-            Time.timeScale = 1f;
+            PlaySound(buttonClickSound);
+            Resume(); // This will set Time.timeScale = 1f
             SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
         }
 
         public void ReturnToMainMenu()
         {
-            Time.timeScale = 1f;
-            SceneManager.LoadScene(mainMenuSceneName);
+            PlaySound(buttonClickSound);
+            Resume(); // Important: resume first to reset Time.timeScale
+
+            // Prefer the nice transition if ScreenTransition is alive in the scene.
+            // Fall back to a direct scene load if not — otherwise pressing "Return to Menu"
+            // would silently do nothing (the bug this comment is trying to prevent).
+            if (ScreenTransition.Instance != null)
+            {
+                ScreenTransition.Instance.LoadSceneWithTransition(mainMenuSceneName);
+            }
+            else
+            {
+                Debug.Log($"[PauseMenu] ScreenTransition missing — loading '{mainMenuSceneName}' directly.");
+                SceneManager.LoadScene(mainMenuSceneName);
+            }
         }
 
         public void OnQuitButton()
         {
-            if (quitConfirmPanel != null) { quitConfirmPanel.SetActive(true); return; }
+            PlaySound(buttonClickSound);
+            if (quitConfirmPanel != null)
+            {
+                pausePanel?.Hide();
+                quitConfirmPanel?.Show();
+                _currentPanel = quitConfirmPanel;
+            }
+            else
+            {
+                QuitGame();
+            }
+        }
+
+        public void OnQuitConfirmYes()
+        {
+            PlaySound(buttonClickSound);
             QuitGame();
         }
 
-        public void OnQuitConfirmYes() => QuitGame();
         public void OnQuitConfirmNo()
         {
-            if (quitConfirmPanel != null) quitConfirmPanel.SetActive(false);
+            PlaySound(buttonClickSound);
+            quitConfirmPanel?.Hide();
+            pausePanel?.Show();
+            _currentPanel = pausePanel;
+        }
+
+        private void HideAllPanels()
+        {
+            pausePanel?.Hide();
+            settingsPanel?.Hide();
+            quitConfirmPanel?.Hide();
+        }
+
+        private void HideAllPanelsInstant()
+        {
+            pausePanel?.HideInstant();
+            settingsPanel?.HideInstant();
+            quitConfirmPanel?.HideInstant();
+        }
+
+        private void PlaySound(AudioClip clip)
+        {
+            if (_audioSource != null && clip != null)
+                _audioSource.PlayOneShot(clip);
         }
 
         private void QuitGame()
         {
+            Time.timeScale = 1f; // Ensure time scale is reset
 #if UNITY_EDITOR
             UnityEditor.EditorApplication.isPlaying = false;
 #else
@@ -106,8 +345,9 @@ namespace TopDownTacticalAI.UI
 
         private void OnDestroy()
         {
-            // กันเผลอค้าง Time.timeScale = 0 ไว้ถ้า Scene ถูกเปลี่ยนไปตอนกำลัง Pause อยู่
+            // Ensure time scale is reset if scene changes while paused
             Time.timeScale = 1f;
+            pauseBlur?.DisableBlur();
         }
     }
 }

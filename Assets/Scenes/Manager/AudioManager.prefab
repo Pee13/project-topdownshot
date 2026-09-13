@@ -6,10 +6,13 @@ GameObject:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
+  m_serializedVersion: 6
   m_Component:
   - component: {fileID: 537737003376240069}
   - component: {fileID: 3841527431786809638}
+  - component: {fileID: 111111111111111111}
+  - component: {fileID: 222222222222222222}
+  - component: {fileID: 333333333333333333}
   m_Layer: 0
   m_Name: AudioManager
   m_TagString: Untagged
@@ -42,7 +45,224 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: ef333254476f5f64996060f8306fa81c, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: Assembly-CSharp::TopDownTacticalAI.UI.AudioManager
-  musicSource: {fileID: 0}
-  sfxSource: {fileID: 0}
+  musicSource: {fileID: 111111111111111111}
+  sfxSource: {fileID: 333333333333333333}
+  musicPlaylist: {fileID: 11400000, guid: 28bd29709a9c8eb429258b9761182153, type: 2}
+  musicVolume: 0.8
+  currentContext: 0
+--- !u!82 &111111111111111111
+AudioSource:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3359952081991221670}
+  m_Enabled: 1
+  serializedVersion: 4
+  OutputAudioMixerGroup: {fileID: 0}
+  m_audioClip: {fileID: 0}
+  m_DirectTransform: {fileID: 0}
+  m_ReturnToZeroOnPlay: 0
+  m_PlayOnAwake: 0
+  m_Volume: 1
+  m_Pitch: 1
+  m_RandomizationInterval: 0
+  m_IgnoreListenerVolume: 0
+  m_IgnoreListenerPause: 0
+  m_AudioSourceBypassEffects: 0
+  m_AudioSourceBypassListenerEffects: 0
+  m_BypassReverbZones: 0
+  m_BypassEffects: 0
+  m_DopplerLevel: 0
+  m_MinDistance: 1
+  m_MaxDistance: 500
+  m_CurrentDistances: 0
+  m_UseOcclusionStencilBuffer: 1
+  m_UseRolloffMode: 1
+  m_CustomRolloff: {fileID: 0}
+  m_RolloffMode: 0
+  m_LogarithmicRolloff: 1
+  m_LinearRolloff: 0
+  m_CustomRolloffCurve:
+    serializedVersion: 2
+    m_Curve: []
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  m_Spread: 0
+  m_PanLevel: 0
+  m_SpatialBlend: 0
+  m_ DopplerLevel: 0
+  m_DefaultSpeakerMode: 2
+  m_ListenerData: {fileID: 0}
+  m_Spatial: 0
+  m_InitialBladeCount: 256
+  m_HammerAmount: 0
+  m_CenterFrequency: 0.2
+  m_Autocorrelate: 0
+  m_AudioSourceVolumeRolloffMode: 0
+  m_CurveInterpolation: 0
+  m_MaxDistance: 1
+  m_Float: []
+  m_UseOcclusion: 1
+  m_LookDirection: {x: 0, y: 0, z: 1}
+  m_UseRectTransform: 0
+  m_Rect: {fileID: 0}
+  m_OverrideSpeakerMode: 0
+  m_OverrideApplication: 0
+  m_OverrideSubmixer: {fileID: 0}
+  m_Simulation: {fileID: 0}
+  m_SrcObj: {fileID: 0}
+  m_Coroutine: {fileID: 0}
+  m_Last枕赖效果: 0
+  m_IsPlaying: 0
+  m_ignoreVolume: 0
+  m_Loop: 1
+  m_Mute: 0
+  m_Play: 0
+  volumeRollOff: 1
+--- !u!82 &222222222222222222
+AudioSource:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3359952081991221670}
+  m_Enabled: 1
+  serializedVersion: 4
+  OutputAudioMixerGroup: {fileID: 0}
+  m_audioClip: {fileID: 0}
+  m_DirectTransform: {fileID: 0}
+  m_ReturnToZeroOnPlay: 0
+  m_PlayOnAwake: 0
+  m_Volume: 0
+  m_Pitch: 1
+  m_RandomizationInterval: 0
+  m_IgnoreListenerVolume: 0
+  m_IgnoreListenerPause: 0
+  m_AudioSourceBypassEffects: 0
+  m_AudioSourceBypassListenerEffects: 0
+  m_BypassReverbZones: 0
+  m_BypassEffects: 0
+  m_DopplerLevel: 0
+  m_MinDistance: 1
+  m_MaxDistance: 500
+  m_CurrentDistances: 0
+  m_UseOcclusionStencilBuffer: 1
+  m_UseRolloffMode: 1
+  m_CustomRolloff: {fileID: 0}
+  m_RolloffMode: 0
+  m_LogarithmicRolloff: 1
+  m_LinearRolloff: 0
+  m_CustomRolloffCurve:
+    serializedVersion: 2
+    m_Curve: []
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  m_Spread: 0
+  m_PanLevel: 0
+  m_SpatialBlend: 0
+  m_DopplerLevel: 0
+  m_DefaultSpeakerMode: 2
+  m_ListenerData: {fileID: 0}
+  m_Spatial: 0
+  m_InitialBladeCount: 256
+  m_HammerAmount: 0
+  m_CenterFrequency: 0.2
+  m_Autocorrelate: 0
+  m_AudioSourceVolumeRolloffMode: 0
+  m_CurveInterpolation: 0
+  m_MaxDistance: 1
+  m_Float: []
+  m_UseOcclusion: 1
+  m_LookDirection: {x: 0, y: 0, z: 1}
+  m_UseRectTransform: 0
+  m_Rect: {fileID: 0}
+  m_OverrideSpeakerMode: 0
+  m_OverrideApplication: 0
+  m_OverrideSubmixer: {fileID: 0}
+  m_Simulation: {fileID: 0}
+  m_SrcObj: {fileID: 0}
+  m_Coroutine: {fileID: 0}
+  m_Last枕赖效果: 0
+  m_IsPlaying: 0
+  m_ignoreVolume: 0
+  m_Loop: 1
+  m_Mute: 0
+  m_Play: 0
+  volumeRollOff: 1
+
+--- !u!82 &333333333333333333
+AudioSource:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3359952081991221670}
+  m_Enabled: 1
+  serializedVersion: 4
+  OutputAudioMixerGroup: {fileID: 0}
+  m_audioClip: {fileID: 0}
+  m_DirectTransform: {fileID: 0}
+  m_ReturnToZeroOnPlay: 0
+  m_PlayOnAwake: 0
+  m_Volume: 1
+  m_Pitch: 1
+  m_RandomizationInterval: 0
+  m_IgnoreListenerVolume: 0
+  m_IgnoreListenerPause: 0
+  m_AudioSourceBypassEffects: 0
+  m_AudioSourceBypassListenerEffects: 0
+  m_BypassReverbZones: 0
+  m_BypassEffects: 0
+  m_DopplerLevel: 0
+  m_MinDistance: 1
+  m_MaxDistance: 500
+  m_CurrentDistances: 0
+  m_UseOcclusionStencilBuffer: 1
+  m_UseOcclusion: 1
+  m_UseRolloffMode: 1
+  m_CustomRolloff: {fileID: 0}
+  m_RolloffMode: 0
+  m_LogarithmicRolloff: 1
+  m_LinearRolloff: 0
+  m_CustomRolloffCurve:
+    serializedVersion: 2
+    m_Curve: []
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  m_Spread: 0
+  m_PanLevel: 0
+  m_SpatialBlend: 0
+  m_DopplerLevel: 0
+  m_DefaultSpeakerMode: 2
+  m_ListenerData: {fileID: 0}
+  m_Spatial: 0
+  m_InitialBladeCount: 256
+  m_HammerAmount: 0
+  m_CenterFrequency: 0.2
+  m_Autocorrelate: 0
+  m_AudioSourceVolumeRolloffMode: 0
+  m_CurveInterpolation: 0
+  m_MaxDistance: 1
+  m_Float: []
+  m_LookDirection: {x: 0, y: 0, z: 1}
+  m_UseRectTransform: 0
+  m_Rect: {fileID: 0}
+  m_OverrideSpeakerMode: 0
+  m_OverrideApplication: 0
+  m_OverrideSubmixer: {fileID: 0}
+  m_Simulation: {fileID: 0}
+  m_SrcObj: {fileID: 0}
+  m_Coroutine: {fileID: 0}
+  m_Last枕赖效果: 0
+  m_IsPlaying: 0
+  m_ignoreVolume: 0
+  m_Loop: 0
+  m_Mute: 0
+  m_Play: 0
+  volumeRollOff: 1

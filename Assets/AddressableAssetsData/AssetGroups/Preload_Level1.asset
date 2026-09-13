@@ -1,0 +1,71 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bbb281ee3bf0b054c82ac2347e9e782c, type: 3}
+  m_Name: Preload_Level1
+  m_EditorClassIdentifier: Unity.Addressables.Editor::UnityEditor.AddressableAssets.Settings.AddressableAssetGroup
+  m_GroupName: Preload_Level1
+  m_GUID: df2bd49ea922910478235277e71338c7
+  m_SerializeEntries:
+  - m_GUID: 151e6c5e5649cad499046cedf38a55f2
+    m_Address: Assets/Sprites/fire_dash_spritesheet_v3.png
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - level1
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 60994e27d63517547aec5252080e5714
+    m_Address: Assets/Scenes/Level1.unity
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - level1
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 827336bff956f58418df064e1ac913a3
+    m_Address: Assets/Sprites/fire_dash_spritesheet.png
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - level1
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: baececfd4523d31408fb1c34e34ecf7e
+    m_Address: Assets/Sprites/player_back_pipe_blue.png
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - level1
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: cab89458ffb98e44ab582ac4d719ee29
+    m_Address: Assets/Sprites/player_back_pipe.png
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - level1
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: e66d6b88e8e3c524a90a0bad9591565b
+    m_Address: Assets/Sprites/PlayerModularParts_Extracted/player_core_body.png
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - level1
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: ea0112575d55263438d235d965ba5bc6
+    m_Address: Assets/Sprites/player_modular_parts_sheet_1.png
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - level1
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: f3c4adbda02d75f4091d69aa39c6eafc
+    m_Address: Assets/Sprites/player_modular_parts_sheet_2.png
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - level1
+    FlaggedDuringContentUpdateRestriction: 0
+  m_ReadOnly: 0
+  m_Settings: {fileID: 11400000, guid: 5adaa2b8db781804a819cc4bb3d9d21d, type: 2}
+  m_SchemaSet:
+    m_Schemas:
+    - {fileID: 11400000, guid: c924b1da5e7e93b48b5154fc3523efd5, type: 2}
+    - {fileID: 11400000, guid: 121020b9dd5588f498e6d88f95cc8b39, type: 2}

@@ -1,0 +1,59 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bbb281ee3bf0b054c82ac2347e9e782c, type: 3}
+  m_Name: Preload_MainMenu
+  m_EditorClassIdentifier: Unity.Addressables.Editor::UnityEditor.AddressableAssets.Settings.AddressableAssetGroup
+  m_GroupName: Preload_MainMenu
+  m_GUID: 47412cc4d3612ee43b758fa9ba25bb07
+  m_SerializeEntries:
+  - m_GUID: 0a87d86e49a13754693deb26429b2b52
+    m_Address: Assets/Scenes/MainMenu.unity
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - mainmenu
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 5a0615b71a0a0e949900018e7d62686d
+    m_Address: Assets/UI/Splash/logoCss.png
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - mainmenu
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: ac370065071c996449513689d58f5953
+    m_Address: Assets/Prefabs/UI/SettingsPanel.prefab
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - mainmenu
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: bebf9bbdfd9394542ad43dda4fa1d036
+    m_Address: "Assets/\u0E2B\u0E19\u0E49\u0E32\u0E40\u0E01\u0E21ui/\u0E2B\u0E19\u0E49\u0E32\u0E2B\u0E25\u0E31\u0E01/\u0E1E\u0E37\u0E49\u0E19\u0E2B\u0E25\u0E31\u0E07.png"
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - mainmenu
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: ee6328ef157ac2c4486d99f64685c460
+    m_Address: "Assets/UI/Splash/logo\u0E21\u0E2B\u0E32\u0E25\u0E31\u0E22.png"
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - mainmenu
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: fabfc84faf843294db358fe81d4ff843
+    m_Address: Assets/UI/Splash/Official_unity_logo.png
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - mainmenu
+    FlaggedDuringContentUpdateRestriction: 0
+  m_ReadOnly: 0
+  m_Settings: {fileID: 11400000, guid: 5adaa2b8db781804a819cc4bb3d9d21d, type: 2}
+  m_SchemaSet:
+    m_Schemas:
+    - {fileID: 11400000, guid: 668ead16c7ca04a41ba36226a5aad0d2, type: 2}
+    - {fileID: 11400000, guid: 6231b005c9f7771499c208c638e5bcb1, type: 2}

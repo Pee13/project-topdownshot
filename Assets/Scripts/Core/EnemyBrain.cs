@@ -13,6 +13,7 @@ using TopDownTacticalAI.Audio;
 using TopDownTacticalAI.DebugTools;
 using TopDownTacticalAI.Player;
 using TopDownTacticalAI.Map;
+using TopDownTacticalAI.UI;
 
 namespace TopDownTacticalAI.Core
 {
@@ -163,24 +164,58 @@ namespace TopDownTacticalAI.Core
                     PatrolSpeed *= 1.2f;
                     break;
 
-                case EnemyRole.Support:
-                    MaxAttackRange = 8f; // ยืนแนวหลัง
-                    PreferredMinRange = 5f; // รักษาระยะห่างจากศัตรู
-                    DangerRange = 6f; // ตกใจง่าย ถอยหาที่กำบังไว
-                    CoverSearchRadius *= 1.5f; // กวาดสายตาหาที่กำบังได้กว้างขึ้น
-                    ChaseSpeed *= 0.8f; // ไม่เน้นวิ่งไล่ล่า
-                    DodgeDetectRadius *= 1.2f; // ระวังตัวสูง หลบกระสุนไว
-                    PersonalSpace = 0.5f; // ลดระยะเว้นห่างจากเพื่อนลง (ยอมยืนเบียดได้เพื่อหลบหลังแทงก์หรือเข้าไปฮีล)
-                    break;
-
                 case EnemyRole.Custom:
                 default:
                     break; // ไม่ปรับอะไร ใช้ค่าที่ตั้งเองทั้งหมด
             }
         }
+
+        /// <summary>
+        /// ใช้ตัวคูณจาก GameDifficulty ปรับพารามิเตอร์ AI ตามระดับความยากที่ผู้เล่นเลือก
+        /// เรียกหลัง ApplyRolePreset() เพื่อให้ Role preset ทำงานก่อน แล้วค่อยคูณ Difficulty เข้าไป
+        /// </summary>
+        private void ApplyDifficultyMultipliers()
+        {
+            var mult = GameDifficulty.GetMultipliers();
+
+            // Movement
+            PatrolSpeed *= mult.patrolSpeedMultiplier;
+            ChaseSpeed *= mult.chaseSpeedMultiplier;
+            SearchSpeed *= mult.searchSpeedMultiplier;
+
+            // Combat
+            FireRate *= mult.fireRateMultiplier;
+            ReloadDuration *= mult.reloadSpeedMultiplier;
+            MaxAmmo = Mathf.RoundToInt(MaxAmmo * mult.maxAmmoMultiplier);
+            // Damage จะถูกนำไปใช้ใน ShootController/Bullet
+            // Accuracy จะถูกนำไปใช้ใน AimController
+
+            // Vision
+            ViewRadius *= mult.viewRadiusMultiplier;
+            ViewAngle *= mult.viewAngleMultiplier;
+
+            // Alert Phase
+            SuspicionBuildTime *= mult.suspicionBuildTimeMultiplier;
+            SuspicionDecayTime *= mult.suspicionDecayTimeMultiplier;
+
+            // Tactical
+            DangerRange *= mult.dangerRangeMultiplier;
+            CoverSearchRadius *= mult.coverSearchRadiusMultiplier;
+            DodgeDetectRadius *= mult.dodgeDetectRadiusMultiplier;
+            DodgeSpeed *= mult.dodgeSpeedMultiplier;
+
+            // Health
+            // MaxHP จะถูกนำไปใช้ใน Health component
+
+            // Group AI
+            AlertShoutRadius *= mult.alertShoutRadiusMultiplier;
+            FlankRadius *= mult.flankRadiusMultiplier;
+        }
+
         private void Awake()
         {
             ApplyRolePreset();
+            ApplyDifficultyMultipliers();
 
             _blackboard = new Blackboard { MaxAmmo = MaxAmmo, CurrentAmmo = MaxAmmo };
             _stateMachine = new StateMachine();

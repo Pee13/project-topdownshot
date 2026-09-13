@@ -67,6 +67,6 @@
         "*.sln": "*.csproj",
         "*.slnx": "*.csproj"
     },
-    "dotnet.defaultSolution": "project-topdownshot.slnx",
+    "dotnet.defaultSolution": "GAme 2D.slnx",
     "dotnet.enableWorkspaceBasedDevelopment": false
 }
