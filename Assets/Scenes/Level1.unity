@@ -1102,7 +1102,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 689152258}
-  m_Enabled: 0
+  m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 24876349657b43d41b21ffd547e2aeae, type: 3}
   m_Name: 
@@ -1617,6 +1617,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 209399278484000719, guid: b1317f065cf73394b8f96b437c0cc6dd, type: 3}
       insertIndex: -1
       addedObject: {fileID: 901147147}
+    - targetCorrespondingSourceObject: {fileID: 209399278484000719, guid: b1317f065cf73394b8f96b437c0cc6dd, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 901147149}
   m_SourcePrefab: {fileID: 100100000, guid: b1317f065cf73394b8f96b437c0cc6dd, type: 3}
 --- !u!1001 &747347060
 PrefabInstance:
@@ -1949,6 +1952,26 @@ LineRenderer:
   m_UseWorldSpace: 1
   m_Loop: 0
   m_ApplyActiveColorSpace: 1
+--- !u!114 &901147149
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 901147139}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9cf10ebdc6c9da34c905276cfec5c197, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TopDownTacticalAI.Player.PlayerMana
+  MaxMana: 100
+  ManaCostPerShot: 8
+  ManaRegenPerSecond: 12
+  RegenDelay: 0.6
+  LowManaThreshold: 0.25
+  OnManaChanged:
+    m_PersistentCalls:
+      m_Calls: []
 --- !u!1 &905785493
 GameObject:
   m_ObjectHideFlags: 0
@@ -3642,7 +3665,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2022521678}
-  m_Enabled: 0
+  m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 24876349657b43d41b21ffd547e2aeae, type: 3}
   m_Name: 
