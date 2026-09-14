@@ -4,19 +4,24 @@ namespace TopDownTacticalAI.Player
 {
     /// <summary>
     /// พฤติกรรมกระสุน: พุ่งไปข้างหน้า ทำดาเมจ แล้ว "ปักค้าง" อยู่ตรงจุดที่ชน
+    /// รองรับทั้งกระสุนของผู้เล่นและกระสุนของ AI
     /// </summary>
     [RequireComponent(typeof(Rigidbody2D), typeof(Collider2D))]
     public class Bullet : MonoBehaviour
     {
+        [Header("Shooter Type")]
+        [Tooltip("ติ๊กถูกถ้ากระสุนนี้เป็นของ Enemy (เพื่อยิงโดน Player และไม่โดนพวกเดียวกัน)")]
+        public bool IsEnemyBullet = false;
+
         [Header("Bullet Movement & Damage")]
-        public float Speed = 180f; // ความเร็วพุ่ง
-        public float Damage = 25f;
+        public float Speed = 18f; // ความเร็วพุ่งที่เหมาะสมในหน่วยฟิสิกส์ 2D
+        public float Damage = 20f;
         
         [Header("Duration Settings")]
-        [Tooltip("อายุกระสุนถ้ายังไม่ชนอะไรเลย (บินไปเรื่อยๆ)")]
+        [Tooltip("อายุกระสุนถ้ายังไม่ชนอะไรเลย")]
         public float LifeTime = 3f;
-        [Tooltip("ระยะเวลาที่กระสุนจะ 'ปักค้าง' อยู่หลังชนอะไรสักอย่าง ก่อนจะหายไปจริงๆ")]
-        public float StickDuration = 4f;
+        [Tooltip("ระยะเวลาที่กระสุนจะ 'ปักค้าง' อยู่หลังชน")]
+        public float StickDuration = 3f;
 
         private bool _hasHit;
         private Rigidbody2D _rb;
@@ -35,7 +40,6 @@ namespace TopDownTacticalAI.Player
 
         private void Start()
         {
-            // พุ่งไปตามแกน Up ของหัวกระสุน
             if (_rb != null)
             {
                 _rb.linearVelocity = transform.up * Speed;
@@ -46,7 +50,6 @@ namespace TopDownTacticalAI.Player
 
         private void Update()
         {
-            // อัปเดตตำแหน่งกรณี Rigidbody เป็น Kinematic
             if (!_hasHit && (_rb == null || _rb.bodyType == RigidbodyType2D.Kinematic))
             {
                 transform.position += transform.up * (Speed * Time.deltaTime);
@@ -55,15 +58,24 @@ namespace TopDownTacticalAI.Player
 
         private void OnTriggerEnter2D(Collider2D other)
         {
-            if (_hasHit) return;
+            if (_hasHit || other.isTrigger) return;
 
-            // บล็อกไม่ให้ชนตัวผู้เล่นเอง หรือชิ้นส่วนของผู้เล่น
-            if (other.CompareTag("Player") || other.gameObject.layer == LayerMask.NameToLayer("Player") || other.isTrigger) 
-                return;
+            // 1. กระสุนของฝั่งผู้เล่น: ไม่ชนผู้เล่นเอง
+            if (!IsEnemyBullet)
+            {
+                if (other.CompareTag("Player") || other.gameObject.layer == LayerMask.NameToLayer("Player"))
+                    return;
+            }
+            // 2. กระสุนของฝั่งศัตรู (AI): ไม่ชนศัตรูตัวอื่นหรือตัวเอง
+            else
+            {
+                if (other.CompareTag("Enemy") || other.gameObject.layer == LayerMask.NameToLayer("EnemyBullet"))
+                    return;
+            }
 
             _hasHit = true;
 
-            // ทำดาเมจใส่เป้าหมายที่มี Health
+            // สั่งหักเลือดเป้าหมาย
             if (other.TryGetComponent(out Health health))
             {
                 health.TakeDamage(Damage);
@@ -72,7 +84,6 @@ namespace TopDownTacticalAI.Player
             EmbedInto(other);
         }
 
-        /// <summary>หยุดกระสุนและ "ปัก" ค้างอยู่ตรงจุดชน แทนที่จะลบทิ้งทันที</summary>
         private void EmbedInto(Collider2D other)
         {
             if (_rb != null)
