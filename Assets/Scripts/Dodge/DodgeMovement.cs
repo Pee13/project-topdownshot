@@ -63,7 +63,9 @@ namespace TopDownTacticalAI.Dodge
             Vector2 desiredDir = (_destination - current).normalized;
             Vector2 steeredDir = SteeringMovement.GetSteeredDirection(current, desiredDir, _obstacleMask, self: _self);
 
-            _self.position = current + steeredDir * _moveSpeed * deltaTime;
+            // เดินแบบ "เช็คก่อนก้าว" — ตอนหลบถ้าหน้าตันจะไหลข้างแทนมุดกำแพง
+            _self.position = SteeringMovement.MoveWithCollisionCheck(
+                _self, steeredDir * (_moveSpeed * deltaTime), _obstacleMask);
 
             if (facePosition.HasValue)
             {

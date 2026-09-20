@@ -94,7 +94,10 @@ namespace TopDownTacticalAI.Core
         // ---- การตั้งค่าระบบฮีล/ถอย (ตั้งจาก EnemyBrain ให้ TacticalDecision/State อ่าน) ----
         public bool IsHealerRole;                       // ตัวนี้เป็น healer หรือเปล่า
         public bool IsTankRole;                         // ตัวนี้เป็น Tank (บัง/คุ้มกันเพื่อน) หรือเปล่า
+        public bool IsFlankerRole;                      // ตัวนี้เป็น Flanker (อ้อมโจมตี) หรือเปล่า
         public bool RetreatOnlyWhenCritical;            // Tank — ถอยเฉพาะเมื่อเลือดวิกฤต (§2 priority 7)
+        public float MaxAttackRange = 6f;               // ระยะยิงได้สูงสุด (FlankState ใช้กำหนดวงระยะ)
+        public float BodyRadius = 0.5f;                 // รัศมีตัวเอง (ใช้ตอนทำนายว่ากระสุนจะโดนไหม)
 
         // ---- Tank Protect/Peel (§8/§9/§10/§21) — เขียนโดยทีมบัสใน EnemyBrain ----
         public bool HealerThreatened;                   // ผู้เล่นมองเห็น/เข้าใกล้ Healer จนถึงขั้นอันตราย

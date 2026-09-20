@@ -58,6 +58,16 @@ namespace TopDownTacticalAI.Utilities
             // 3) ใช้ Whisker Raycast/Collider Cast ตรวจสอบทิศทางที่ผสมแล้ว
             // Collider Cast สำคัญกว่าการยิงจากจุดกลาง เพราะศัตรูมีขนาดจริง
             Collider2D selfCollider = self != null ? self.GetComponent<Collider2D>() : null;
+
+            // ระยะ whisker ต้องสเกลตามขนาดตัว — ถ้าตัวใหญ่ (รัศมี 2+) แต่ probe แค่ 1.6
+            // collider จะชนกำแพงก่อนปลาย whisker ทุกทิศ ทำให้คิดว่า "ตัน" แล้วยืนนิ่ง
+            if (selfCollider != null)
+            {
+                var selfExtents = selfCollider.bounds.extents;
+                float bodyRadius = Mathf.Max(selfExtents.x, selfExtents.y);
+                probeDistance = Mathf.Max(probeDistance, bodyRadius * 0.7f);
+            }
+
             var castHits = new RaycastHit2D[1];
             var filter = new ContactFilter2D
             {
@@ -157,7 +167,13 @@ namespace TopDownTacticalAI.Utilities
                     return from + alt * distance;
             }
 
-            // ทุกทิศตัน → อยู่กับที่ (ดีกว่ามุดกำแพง)
+            // ทุกทิศตันด้วยวงเต็ม → ลองก้าวตรงด้วยวง "ครึ่งหนึ่ง" อีกรอบ
+            // (ให้ไหลต่อได้ในทางแคบ แทนยืนเป็นหมู — EnsureNotInsideObstacle
+            //  ยังดีดกลับอยู่แล้วถ้าซ้อนลึกจริง ๆ)
+            if (!IsPathBlocked(from, dir, distance, radius * 0.5f, obstacleMask))
+                return from + step;
+
+            // ทุกทิศตันจริง ๆ → อยู่กับที่ (ดีกว่ามุดกำแพง)
             return from;
         }
 

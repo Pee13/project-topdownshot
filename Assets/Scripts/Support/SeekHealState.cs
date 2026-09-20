@@ -21,12 +21,14 @@ namespace TopDownTacticalAI.Support
         private readonly Transform _self;
         private readonly Blackboard _blackboard;
         private readonly LayerMask _obstacleMask;
+        private readonly float _followSpeed;
 
-        public SeekHealState(Transform self, Blackboard blackboard, LayerMask obstacleMask)
+        public SeekHealState(Transform self, Blackboard blackboard, LayerMask obstacleMask, float followSpeed = 20f)
         {
             _self = self;
             _blackboard = blackboard;
             _obstacleMask = obstacleMask;
+            _followSpeed = followSpeed;
         }
 
         public void Enter() { }
@@ -48,8 +50,9 @@ namespace TopDownTacticalAI.Support
 
                 if (steered.sqrMagnitude > 0.0001f)
                 {
-                    // เดินช้ากว่าปกติ — เดินเร็วไม่ช่วยให้ฮีลเร็วขึ้น แต่เสียงเดินดังเรียกศัตรู
-                    _self.position = selfPos + steered * (2f * deltaTime);
+                    // เดินตาม healer ด้วยความเร็วจริง (เดิม 2 หน่วย/วิ = เดินริ้วรอยบนแมพใหญ่)
+                    _self.position = SteeringMovement.MoveWithCollisionCheck(
+                        _self, steered * (_followSpeed * deltaTime), _obstacleMask);
                     _blackboard.CurrentDestination = healerPos;
                 }
                 return;

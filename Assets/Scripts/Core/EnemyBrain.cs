@@ -249,7 +249,7 @@ namespace TopDownTacticalAI.Core
                 case EnemyRole.Support:
                     // ตัวสนับสนุน: ต้องรอดนานที่สุดและอยู่ห่างจากแนวหน้า
                     // ไม่เน้นบุก ไม่เน้นยิง — เน้นอยู่ใกล้พวกเพื่อช่วยเหลือ
-                    // ไม่ dodge แบบเบี่ยงข้าง (§29) เพราะต้องรักษาตำแหน่งหลัง Tank
+                    // หลบกระสุนได้ "แบบชิบหลับ" — ตรวจเฉพาะกระสุนที่ใกล้มาก ๆ เท่านั้น
                     MaxAttackRange = 5f;
                     PreferredMinRange = 5f;      // ถอยห่างกว่าใคร เพื่อไม่ให้ติดแนวหน้า
                     DangerRange = 6f;            // ระวังตัวสูง ถอยไว
@@ -257,19 +257,25 @@ namespace TopDownTacticalAI.Core
                     PersonalSpace *= 1.6f;       // เว้นระยะจากเพื่อนมากกว่าปกติ (กันไปบังเพื่อน)
                     AlertShoutRadius *= 1.4f;    // รับรู้/กระจายข่าวในวงกว้างเพื่อช่วยทีม
                     CoverSearchRadius *= 1.3f;   // หาที่กำบังเก่งกว่า เพราะต้องรอด
-                    _canDodge = false;
+                    _canDodge = true;            // หลบได้แต่ตรวจแค่ใกล้มาก (แย่กว่า Flanker)
+                    DodgeDetectRadius *= 0.5f;   // ตรวจเฉพาะกระสุนที่ใกล้มาก — หลบช้ากว่า Flanker
                     break;
 
                 case EnemyRole.Flanker:
                     // ตัวอ้อมโจมตี: เร็วและอ้อมกว้าง เพื่อเข้าทางข้าง/หลังผู้เล่น
-                    MaxAttackRange = 5f;
-                    PreferredMinRange = 1.5f;    // เข้าใกล้ได้เพื่อสร้างความกดดัน
+                    // หลบกระสุนเก่งที่สุดในทีม (ตัวเดียวที่หลบเก่งจริง ๆ)
+                    // ยิงได้จากระยะที่ผู้เล่น "มองเห็นได้" — ไม่ต้องปากต่อปาก
+                    MaxAttackRange = 30f;        // ยิงได้จากระยะที่เห็นกัน (แมพนี้สเกลใหญ่)
+                    PreferredMinRange = 8f;      // เว้นระยะห่างพอที่ผู้เล่นมองเห็นตัว
                     DangerRange = 2.5f;
                     ChaseSpeed *= 1.35f;         // เร็วที่สุดในกอง
                     SearchSpeed *= 1.2f;         // ตามรอยได้ไว
                     FlankRadius *= 1.8f;         // อ้อมวงกว้างกว่าปกติ (จุดที่ทำให้ต่างจาก Aggressive)
                     ViewRadius *= 1.15f;         // มองกว้างเพื่อเลือกจังหวะอ้อม
                     PatrolRadius *= 1.3f;
+                    DodgeDetectRadius *= 2f;     // ตรวจกระสุนไกล ๆ ได้ — หลบทันทีที่กระสุนออกปาก
+                    DodgeDistance *= 1.5f;       // หลบ "ไกล" ตามที่ออกแบบ — ไม่ใช่ขยับนิดเดียว
+                    RetreatSpeed *= 10f;         // หนีไปหา healer ให้ไว (เดิม 3 = เดินริ้วรอย)
                     _canDodge = true;
                     break;
 
@@ -331,6 +337,12 @@ namespace TopDownTacticalAI.Core
             _stateMachine = new StateMachine();
             _bodyCollider = GetComponent<Collider2D>();
 
+            // รัศมีตัวเอง — ใช้ตอนทำนายว่ากระสุนจะโดนไหม (DodgeDecision)
+            // ใช้ขนาด collider จริง ไม่ใช่ค่า default 0.5 ที่ทำให้หลบเฉพาะกระสุนเข้ากลางตัวเป๊ะ ๆ
+            if (_bodyCollider != null)
+                _blackboard.BodyRadius = Mathf.Max(
+                    _bodyCollider.bounds.extents.x, _bodyCollider.bounds.extents.y);
+
             // ความสำคัญต่อทีมตามบทบาท — ใช้ถ่วงการตัดสินใจ (ตัวสำคัญจะยอมหลบมากกว่า)
             // ตั้งค่าตรงนี้จุดเดียว เพราะ Role ถูกปรับจบแล้วใน ApplyRolePreset() ข้างบน
             _blackboard.SelfRoleImportance = AIActionScorer.GetRoleImportance(Role);
@@ -344,6 +356,8 @@ namespace TopDownTacticalAI.Core
             // Tank ไม่ควรถอยหนีง่าย ๆ (§2 — RETREAT อยู่ลำดับสุดท้ายของหน้าที่ tank)
             // จึงให้ถอยเฉพาะเมื่อเลือดวิกฤตจริง ๆ (ไม่งั้นตายแล้วใครจะบังให้)
             _blackboard.RetreatOnlyWhenCritical = Role == EnemyRole.Defensive;
+            _blackboard.IsFlankerRole = Role == EnemyRole.Flanker;
+            _blackboard.MaxAttackRange = MaxAttackRange;
             _blackboard.RetreatHealthThreshold = RetreatHealthThreshold;
             _blackboard.CriticalRetreatHealthThreshold = CriticalRetreatHealthThreshold;
             _blackboard.HealRange = HealRange;
@@ -430,7 +444,7 @@ namespace TopDownTacticalAI.Core
             // ── State กลุ่มเอาชีวิตรอด + สนับสนุน (§18/§19/§14) ──
             // Retreat/SeekHeal ลงทะเบียนให้ทุกตัว (ใครเลือดน้อยก็ถอยได้)
             _stateMachine.RegisterState(new Support.RetreatState(transform, _blackboard, RetreatSpeed, ObstacleMask, DangerRange * 2f));
-            _stateMachine.RegisterState(new Support.SeekHealState(transform, _blackboard, ObstacleMask));
+            _stateMachine.RegisterState(new Support.SeekHealState(transform, _blackboard, ObstacleMask, RetreatSpeed * 0.8f));
 
             // HealAlly ลงทะเบียนเฉพาะ Healer — ตัวอื่นไม่มีทางเข้า state นี้อยู่แล้ว
             // (TacticalDecision จะเสนอก็ต่อเมื่อ blackboard.IsHealerRole เท่านั้น)
@@ -450,6 +464,12 @@ namespace TopDownTacticalAI.Core
                 _stateMachine.RegisterState(new Support.PeelAllyState(
                     transform, _blackboard, CoverMoveSpeed, ObstacleMask, _shoot, MaxAttackRange));
             }
+
+            // Flank ลงทะเบียนเฉพาะ Flanker (§3/§11/§25) — แทน Combat ปกติของมัน
+            if (Role == EnemyRole.Flanker)
+                _stateMachine.RegisterState(new Support.FlankState(
+                    transform, _blackboard, ChaseSpeed, MaxAttackRange,
+                    PreferredMinRange, ObstacleMask, _shoot, MaxAttackRange, _reload));
 
             _stateMachine.ChangeState(EnemyState.Patrol);
         }

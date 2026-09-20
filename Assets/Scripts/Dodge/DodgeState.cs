@@ -70,7 +70,29 @@ namespace TopDownTacticalAI.Dodge
         {
             if (BulletDetector.IsBulletIncoming(_self.position, _detectRadius, _bulletMask, out Vector2 vel, out Vector2 bulletPos))
             {
-                Vector2 candidate = FindDodgeDestinationViaInfluenceMap(vel, bulletPos);
+                // ── ตัวหลัก: DodgeDirectionScorer (§8/§18) ──
+                // ตรวจครบ: ทำนายแนวกระสุน 3 จุดเวลา + ทางเดินไปจุดหลบติดกำแพงไหม
+                //          + กำแพงที่จุดหลบ + เพื่อน + ระยะห่างผู้เล่น + ที่กำบัง
+                Vector2 playerPos0 = _blackboard.CurrentTarget != null
+                    ? (Vector2)_blackboard.CurrentTarget.position
+                    : (Vector2)_self.position;
+
+                bool scored = DodgeDirectionScorer.TryFindBestDodgeDirection(
+                    _self.position, bulletPos, vel, _dodgeDistance,
+                    _obstacleMask, playerPos0,
+                    out Vector2 scoredDir, out float scoredScore);
+
+                Vector2 candidate;
+                if (scored)
+                {
+                    candidate = (Vector2)_self.position + scoredDir * _dodgeDistance;
+                }
+                else
+                {
+                    // Fallback: InfluenceMap (ค้นหาเป็นกริด) — ใช้เมื่อ scorer หาทิศไม่ได้เลย
+                    candidate = FindDodgeDestinationViaInfluenceMap(vel, bulletPos);
+                }
+
                 Vector2 dodgeDir = (candidate - (Vector2)_self.position).normalized;
 
                 _blackboard.DodgeDirection = dodgeDir;

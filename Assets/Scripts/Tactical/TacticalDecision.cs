@@ -32,7 +32,7 @@ namespace TopDownTacticalAI.Tactical
             if (blackboard.CanSeeTarget && blackboard.CanDodge)
             {
                 bool bulletIncoming = Dodge.BulletDetector.IsBulletIncoming(selfPosition, dodgeDetectRadius, bulletMask, out Vector2 bulletVel, out Vector2 bulletPos);
-                if (bulletIncoming && Dodge.DodgeDecision.ShouldDodge(true, selfPosition, bulletPos, bulletVel))
+                if (bulletIncoming && Dodge.DodgeDecision.ShouldDodge(true, selfPosition, bulletPos, bulletVel, blackboard.BodyRadius))
                 {
                     reason = "เห็นผู้เล่น + ทำนายแล้วว่ากระสุนจะโดนจริง → หลบด่วน!";
                     return EnemyState.Dodge;
@@ -163,7 +163,7 @@ namespace TopDownTacticalAI.Tactical
             // 4) ระยะไกลเกินไปที่จะยิง -> ไล่ตามก่อน (มี Hysteresis กันแกว่งกับ Combat)
             float chaseCombatThreshold = dangerRange * 2f;
             float chaseHysteresis = 0.75f;
-            bool effectiveTooFar = currentState == EnemyState.Combat
+            bool effectiveTooFar = currentState == EnemyState.Combat || currentState == EnemyState.Flank
                 ? blackboard.DistanceToTarget > chaseCombatThreshold + chaseHysteresis  // อยู่ Combat อยู่แล้ว ต้องไกลกว่านี้ถึงจะออกไปไล่
                 : blackboard.DistanceToTarget > chaseCombatThreshold - chaseHysteresis; // ยังไม่ได้ Combat ต้องใกล้กว่านี้ถึงจะเข้า
 
@@ -179,6 +179,15 @@ namespace TopDownTacticalAI.Tactical
 
                 reason = $"เห็นผู้เล่นแต่ระยะไกลเกินไป ({blackboard.DistanceToTarget:F1}m) → วิ่งเข้าไปไล่ตาม";
                 return EnemyState.Chase;
+            }
+
+            // 4.5) FLANKER: เข้า Flank แทน Combat ปกติ (§3/§11/§25)
+            //      อ้อมหาตำแหน่งข้าง/หลัง + รักษาระยะ (§7) + หันหน้าหาผู้เล่นเสมอ (§25)
+            //      + ยิงระหว่างวน (§3 priority 5)
+            if (blackboard.IsFlankerRole)
+            {
+                reason = "Flanker: เข้าปะทะ → อ้อมหาตำแหน่งข้าง/หลังแล้ววนยิง (FLANK)";
+                return EnemyState.Flank;
             }
 
             // 5) กรณีปกติ: เข้าสู่ Combat

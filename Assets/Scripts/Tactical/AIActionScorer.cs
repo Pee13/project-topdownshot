@@ -112,6 +112,16 @@ namespace TopDownTacticalAI.Tactical
                         wVision + wReach + memory * 0.3f + ammoReady * 0.2f + safety * 0.2f,
                         w.visibility + w.accessibility + 0.7f);
 
+                // Flanker อ้อมโจมตี: เข้าปะทะโดยหาตำแหน่งข้าง/หลัง (§3/§11)
+                // คุ้มเมื่อเห็นผู้เล่นชัด + กระสุนพร้อม + ปลอดภัยพอจะวนอยู่รอบ ๆ
+                case EnemyState.Flank:
+                    return Normalize(
+                        wVision * 0.35f
+                        + ammoReady * 0.25f
+                        + safety * 0.25f
+                        + wReach * 0.15f,
+                        w.visibility + 0.25f + 0.25f + w.accessibility);
+
                 // ค้นหา: คุ้มเมื่อยังจำได้และภัยไม่สูง
                 case EnemyState.Search:
                     return Normalize(memory * 0.6f + safety * 0.4f, 1f);
@@ -289,6 +299,13 @@ namespace TopDownTacticalAI.Tactical
 
             // เลือดวิกฤต
             if (bb.CurrentHP > 0f && healthPercent <= w.criticalHealthOverride)
+                return true;
+
+            // บั๊กที่เจอจริง: เลือด 15-30% (ต่ำกว่าเกณฑ์ถอย แต่ยังไม่ถึงวิกฤต)
+            // TacticalDecision เสนอ Retreat แต่ hysteresis ขวางไว้เพราะคะแนน Retreat
+            // ชนะ Flank แค่ 2-3 คะแนน (น้อยกว่า switchThreshold) → AI ดื้อยืนตีต่อจนตาย
+            // ที่เลือดระดับนี้ "การถอย" สำคัญกว่าการเทียบคะแนนละเอียด จึงต้องระงับ hysteresis
+            if (bb.CurrentHP > 0f && healthPercent <= bb.RetreatHealthThreshold)
                 return true;
 
             // ภัยคุกคามสูงมาก + อยู่ในสภาพที่สู้ไม่ไหว

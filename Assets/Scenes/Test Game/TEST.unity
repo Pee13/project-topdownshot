@@ -1806,7 +1806,7 @@ MonoBehaviour:
   DodgeDetectRadius: 50
   DodgeSpeed: 50
   DodgeDistance: 40
-  MemoryDuration: 1000000
+  MemoryDuration: 30
   SearchPursuitOvershoot: 50
   MaxAlertDuration: 99
   AlertShoutRadius: 100
@@ -4309,7 +4309,7 @@ MonoBehaviour:
   DodgeDetectRadius: 10
   DodgeSpeed: 50
   DodgeDistance: 4
-  MemoryDuration: 1000000
+  MemoryDuration: 25
   SearchPursuitOvershoot: 50
   MaxAlertDuration: 99
   AlertShoutRadius: 100
@@ -6819,7 +6819,7 @@ MonoBehaviour:
   DodgeDetectRadius: 10
   DodgeSpeed: 50
   DodgeDistance: 10
-  MemoryDuration: 100
+  MemoryDuration: 30
   SearchPursuitOvershoot: 50
   MaxAlertDuration: 99
   AlertShoutRadius: 100

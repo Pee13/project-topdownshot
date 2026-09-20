@@ -88,6 +88,10 @@ namespace TopDownTacticalAI.Dodge
                 if (dir.sqrMagnitude < 0.0001f) continue;
                 dir.Normalize();
 
+                // §18 — ทางไปจุดหลบต้องเดินถึงจริง: ถ้ามีกำแพงขวางระหว่างตัวกับจุดหลบ
+                // ทิศนั้นใช้ไม่ได้ (เดินชนกำแพงแทนหลบ) ตัดทิ้งก่อนคิดคะแนนอื่น
+                if (IsPathToDodgeBlocked(origin, dir, dodgeDistance, obstacleMask)) continue;
+
                 float score = ScoreDirection(
                     origin, dir, bulletPosition, bulletVelocity,
                     dodgeDistance, obstacleMask, playerPosition);
@@ -132,6 +136,28 @@ namespace TopDownTacticalAI.Dodge
             }
 
             return true;
+        }
+
+        /// <summary>
+        /// ตรวจว่า "ทางเดินไปจุดหลบ" ติดกำแพงหรือไม่ — ยิง CircleCast จากตัวไปตามทิศหลบ
+        /// (ไม่ใช่แค่จุดหลบโล่ง แต่ "ทางเดินไปถึง" ต้องโล่งด้วย ไม่งั้นเดินชนกำแพง)
+        /// </summary>
+        private static bool IsPathToDodgeBlocked(Vector2 origin, Vector2 direction, float dodgeDistance, LayerMask obstacleMask)
+        {
+            var filter = new ContactFilter2D
+            {
+                useLayerMask = true,
+                layerMask = obstacleMask,
+                useTriggers = false
+            };
+            var hits = new RaycastHit2D[2];
+
+            // ใช้วงกลมครึ่งหนึ่งของขนาดตัว — กันตันเกินจริงจนหลบไม่ได้สักทิศ
+            int count = Physics2D.CircleCast(origin, 0.6f, direction, filter, hits, dodgeDistance);
+            for (int i = 0; i < count; i++)
+                if (hits[i].collider != null) return true;
+
+            return false;
         }
 
         /// <summary>

@@ -27,6 +27,7 @@ namespace TopDownTacticalAI.Tactical
                 case EnemyState.Cover: return 5;
                 case EnemyState.ProtectHealer: return 5; // Tank — หน้าที่หลัก (§2 priority 1)
                 case EnemyState.PeelAlly: return 5;      // Tank — ช่วยเพื่อนที่ถูกไล่ (§2 priority 2)
+                case EnemyState.Flank: return 4;         // Flanker — เทียบเท่า Combat (§3 priority 2-3)
                 case EnemyState.Combat: return 4;
                 case EnemyState.Chase: return 3;
                 case EnemyState.Suspicious: return 2;

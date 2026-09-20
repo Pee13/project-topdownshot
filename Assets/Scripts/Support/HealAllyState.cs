@@ -3,6 +3,7 @@ using TopDownTacticalAI.Core;
 using TopDownTacticalAI.Player;
 using TopDownTacticalAI.Tactical;
 using TopDownTacticalAI.Utilities;
+using TopDownTacticalAI.Vision;
 
 namespace TopDownTacticalAI.Support
 {
@@ -33,6 +34,12 @@ namespace TopDownTacticalAI.Support
         private Health _currentTargetHealth;
         private float _targetSwitchCooldown;
         private readonly LayerMask _bulletMask;
+
+        // ── Wall-following detour (เดินอ้อมกำแพงไปฮีล) ──
+        // ผูกพันเดินตามขอบกำแพงทิศเดียว 1.5 วิ — กันสลับซ้ายขวาจนก้ำกึ่ง (§28)
+        private Vector2 _detourDirection;
+        private float _detourTimer;
+        private const float DetourCommitTime = 1.5f;
 
         // ระยะเผื่อรอบตัวตอนเช็คกำแพง — ยิ่งมาก ยิ่งเว้นห่างกำแพงกว่าที่ collider จริงแตะ
         // (ชดเชยสไปรต์ปลายแหลมที่ยื่นเกินกรอบ collider)
@@ -124,52 +131,10 @@ namespace TopDownTacticalAI.Support
             Vector2 targetPos = _currentTarget.position;
             float distance = Vector2.Distance(selfPos, targetPos);
 
-            // ── 2) ไกลเกินระยะฮีล → เดินเข้าไปหา ──
-            if (distance > _healRange)
-            {
-                DisableBeam();
-                Vector2 dir = (targetPos - selfPos).normalized;
-                Vector2 steered = SteeringMovement.GetSteeredDirection(selfPos, dir, _obstacleMask, self: _self, personalSpace: 1.2f);
+            // ── 2) LoS ไปเป้าฮีล — ลำแสงฮีลห้ามทะลุกำแพง (§17) ──
+            bool targetVisible = RaycastDetector.HasLineOfSight(selfPos, targetPos, _obstacleMask, distance + 1f);
 
-                if (steered.sqrMagnitude > 0.0001f)
-                {
-                    Vector2 step = steered * (_moveSpeed * deltaTime);
-                    Vector2 nextPos = selfPos + step;
-
-                    // กันมุดกำแพง: เช็ค "จุดที่จะไปถึง" ก่อนย้ายจริงทุกเฟรม
-                    // ไม่ใช่ย้ายก่อนแล้วค่อยให้ระบบชนดันออก (ปากตัวแหลมจะมุดเข้าไปก่อน collider แตะ)
-                    if (IsStepBlocked(selfPos, step))
-                    {
-                        // ทางตรงตัน → ลองเลื่อนทแยง 45° สองข้าง (เดินอ้อมต่อ ไม่หยุดค้าง)
-                        Vector2 perp = new Vector2(-steered.y, steered.x);
-                        Vector2 left = (steered + perp * 0.9f).normalized;
-                        Vector2 right = (steered - perp * 0.9f).normalized;
-
-                        Vector2 chosen = Vector2.zero;
-                        if (!IsStepBlocked(selfPos, left * _moveSpeed * deltaTime))
-                            chosen = left;
-                        else if (!IsStepBlocked(selfPos, right * _moveSpeed * deltaTime))
-                            chosen = right;
-
-                        if (chosen.sqrMagnitude > 0.0001f)
-                        {
-                            Vector2 altStep = chosen * (_moveSpeed * deltaTime);
-                            _self.position = selfPos + altStep;
-                            _blackboard.CurrentDestination = targetPos;
-                            FaceDirection(steered, deltaTime);
-                        }
-                        // สองข้างตัน → ยืนรอเฟรมหน้า (อย่าฝืนเดินเข้ากำแพง)
-                        return;
-                    }
-
-                    _self.position = selfPos + step;
-                    _blackboard.CurrentDestination = targetPos;
-                    FaceDirection(steered, deltaTime);
-                }
-                return;
-            }
-
-            // ── 3) ตรวจความปลอดภัยก่อนฮีล (§17/§23) ──
+            // ── 3) ตรวจความปลอดภัยก่อนฮีล/เดิน (§17/§23) — ใช้ได้ทั้งตอนเดินและตอนฮีล ──
             Vector2 playerPos = _blackboard.CurrentTarget != null
                 ? (Vector2)_blackboard.CurrentTarget.position
                 : Vector2.zero;
@@ -192,7 +157,8 @@ namespace TopDownTacticalAI.Support
 
                     if (steered.sqrMagnitude > 0.0001f)
                     {
-                        _self.position = selfPos + steered * _moveSpeed * deltaTime;
+                        _self.position = SteeringMovement.MoveWithCollisionCheck(
+                            _self, steered * (_moveSpeed * deltaTime), _obstacleMask);
                         _blackboard.CurrentDestination = selfPos + steered * _moveSpeed;
                         FaceDirection(steered, deltaTime);
                     }
@@ -200,7 +166,17 @@ namespace TopDownTacticalAI.Support
                 return;
             }
 
-            // ── 4) ปลอดภัย → ฮีล + หันหน้าไปทางเป้าฮีล (§26) ──
+            // ── 4) ไกลเกินระยะฮีล "หรือ" มองไม่เห็นเป้า (มีกำแพงขวาง) → เดินเข้าไปหา ──
+            // เดิมเดินตรง ๆ แล้วเลียนกำแพงไปมา (แต่ละเฟรมลองเลี้ยวใหม่ ไม่มีการผูกพันทิศ)
+            // ตอนนี้ใช้ wall-following: ผูกพันเดินตามขอบกำแพงจนมองเห็นเป้า แล้วค่อยเดินตรง
+            if (distance > _healRange || !targetVisible)
+            {
+                DisableBeam();
+                WalkToTarget(selfPos, targetPos, deltaTime);
+                return;
+            }
+
+            // ── 5) ในระยะ + เห็นเป้า → ฮีล + หันหน้าไปทางเป้าฮีล (§26) ──
             _currentTargetHealth.Heal(_healPerSecond * deltaTime);
 
             if (_healBeam != null)
@@ -212,6 +188,94 @@ namespace TopDownTacticalAI.Support
 
             _blackboard.CurrentDestination = targetPos;
             FaceDirection((targetPos - selfPos).normalized, deltaTime);
+        }
+
+        /// <summary>
+        /// เดินเข้าไปหาเป้าฮีลแบบ "อ้อมกำแพงได้" (§ — ไม่มี pathfinding ในโปรเจกต์
+        /// จึงใช้ wall-following แบบผูกพันทิศแทน)
+        ///
+        /// หลักการ: ถ้ากำแพงขวางหน้าเดิน → เลือกซ้าย/ขวาที่โล่งกว่า แล้ว "ผูกพัน" เดิน
+        /// ตามขอบกำแพงในทิศนั้น 1.5 วินาที (กันสลับซ้ายขวาจนก้ำกึ่ง — §28)
+        /// พอมองเห็นเป้าแล้ว (อ้อมมาถึง) → ปิด detour เดินตรงเข้าหา
+        /// </summary>
+        private void WalkToTarget(Vector2 selfPos, Vector2 targetPos, float deltaTime)
+        {
+            Vector2 dir = (targetPos - selfPos).normalized;
+            Vector2 moveDirection;
+
+            bool wallAhead = IsWallAhead(selfPos, dir);
+            bool detouring = _detourTimer > 0f && _detourDirection.sqrMagnitude > 0.0001f;
+
+            if (!wallAhead && !detouring)
+            {
+                // ทางโล่ง → เดินตรงเข้าหาเป้า
+                moveDirection = dir;
+            }
+            else
+            {
+                // กำแพงขวาง → wall follow
+                if (!detouring)
+                {
+                    // เลือกซ้าย/ขวาที่ "โล่งลึกกว่า" — นับทางหนีที่จุดหนึ่งเดินจากตรงนั้น
+                    Vector2 perp = Vector2.Perpendicular(dir);
+                    Vector2 leftProbe = selfPos + perp * 3f;
+                    Vector2 rightProbe = selfPos - perp * 3f;
+                    int leftOpen = OpenDirectionsAt(leftProbe);
+                    int rightOpen = OpenDirectionsAt(rightProbe);
+                    _detourDirection = leftOpen >= rightOpen ? perp : -perp;
+                    _detourTimer = DetourCommitTime;
+                }
+
+                _detourTimer -= deltaTime;
+                if (_detourTimer <= 0f)
+                    _detourDirection = Vector2.zero; // หมดเวลาผูกพัน → ประเมินใหม่เฟรมหน้า
+
+                // เดินตามขอบกำแพง + โค้งเข้าหาเป้าเบา ๆ (ไม่หนีเป้าไกลเกิน)
+                moveDirection = _detourDirection.sqrMagnitude > 0.0001f
+                    ? (_detourDirection + dir * 0.6f).normalized
+                    : dir;
+            }
+
+            if (moveDirection.sqrMagnitude < 0.0001f) return;
+
+            var steered = SteeringMovement.GetSteeredDirection(
+                selfPos, moveDirection, _obstacleMask, self: _self, personalSpace: 1.2f);
+            if (steered.sqrMagnitude < 0.0001f) return;
+
+            _self.position = SteeringMovement.MoveWithCollisionCheck(
+                _self, steered * (_moveSpeed * deltaTime), _obstacleMask);
+            _blackboard.CurrentDestination = targetPos;
+
+            // §26 — healer หันหน้าไปทาง "เป้าฮีล" ขณะเดินไปฮีล (ไม่ใช่หันตามทิศเดิน)
+            FaceDirection(dir, deltaTime);
+        }
+
+        /// <summary>กำแพงขวางหน้าเดินไหม — CircleCast ขนาดตัว+padding ยาว 3 หน่วย</summary>
+        private bool IsWallAhead(Vector2 from, Vector2 dir)
+        {
+            var filter = new ContactFilter2D
+            {
+                useLayerMask = true,
+                layerMask = _obstacleMask,
+                useTriggers = false
+            };
+            var hits = new RaycastHit2D[2];
+            float radius = GetBodyRadius() + WallPadding;
+
+            int count = Physics2D.CircleCast(from, radius, dir, filter, hits, 3f);
+            for (int i = 0; i < count; i++)
+                if (hits[i].collider != null) return true;
+
+            return false;
+        }
+
+        /// <summary>นับทางหนีรอบจุด (4 ทิศหลัก) — ใช้เลือก detour ที่โล่งกว่า</summary>
+        private int OpenDirectionsAt(Vector2 point)
+        {
+            int open = 0;
+            foreach (var d in new[] { Vector2.up, Vector2.down, Vector2.left, Vector2.right })
+                if (!IsWallAhead(point, d)) open++;
+            return open;
         }
 
         private void DisableBeam()
