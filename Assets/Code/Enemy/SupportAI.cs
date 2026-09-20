@@ -58,7 +58,6 @@ namespace TopDownTacticalAI.Enemy
                 bool canSeePlayer = CheckLineOfSightToPlayer();
                 HandleTactics(canSeePlayer);
             }
-
             HandleHealing();
         }
 
