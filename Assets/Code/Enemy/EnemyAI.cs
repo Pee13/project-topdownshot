@@ -116,7 +116,21 @@ public class EnemyAI : MonoBehaviour
     public int   maxHealth      = 100;
     public float lowHealthRatio = 0.35f;
     private int  currentHealth;
-    public bool  IsLowHealth => currentHealth <= maxHealth * lowHealthRatio;
+
+    // Health component ที่ใช้ร่วมกับกระสุน/HUD ของโปรเจกต์ (แหล่งความจริงเดียว)
+    // ถ้ามีตัวนี้อยู่ ให้ยึดค่านี้แทน currentHealth ภายใน เพื่อไม่ให้เลือดสองระบบไม่ตรงกัน
+    private TopDownTacticalAI.Player.Health _sharedHealth;
+
+    /// <summary>เลือดปัจจุบัน — อ่านจาก Health component ถ้ามี ไม่งั้นใช้ค่าในสคริปต์นี้</summary>
+    public int CurrentHealth => _sharedHealth != null
+        ? Mathf.CeilToInt(_sharedHealth.CurrentHP)
+        : currentHealth;
+
+    public int MaxHealth => _sharedHealth != null
+        ? Mathf.CeilToInt(_sharedHealth.MaxHP)
+        : maxHealth;
+
+    public bool IsLowHealth => CurrentHealth <= MaxHealth * lowHealthRatio;
 
     // ════════════════════════════════════════════════════════
     //  COVER
@@ -325,6 +339,8 @@ public class EnemyAI : MonoBehaviour
         weapon = GetComponent<EnemyWeaponSystem>(); // auto-find WeaponSystem
 
         currentHealth     = maxHealth;
+        // ผูกกับ Health component ของโปรเจกต์ ถ้ามี เพื่อให้เลือดตรงกันทั้งเกม
+        _sharedHealth     = GetComponent<TopDownTacticalAI.Player.Health>();
         // สำคัญมาก: บังคับให้เป็น Kinematic เสมอ เพราะโค้ด AI ทั้งหมดในไฟล์นี้เขียนตำแหน่ง/ความเร็วผ่าน
         // rb.linearVelocity และ transform.position/rotation ตรงๆ เอง ถ้า Rigidbody2D เป็น Dynamic (ค่า Default
         // ของ Unity) พอตัวศัตรู 2 ตัวชนกัน/ชิดกัน Physics Engine จะเสริมแรงผลักกันเองอัตโนมัติ (Collision Response)
@@ -1341,6 +1357,16 @@ public class EnemyAI : MonoBehaviour
 
     public void TakeDamage(int dmg)
     {
+        // ถ้ามี Health component ให้หักที่ตัวนั้น (กระสุน/HUD ใช้ตัวนี้)
+        // ไม่ต้อง Destroy เอง เพราะ Health จัดการตายให้แล้ว
+        if (_sharedHealth != null)
+        {
+            _sharedHealth.TakeDamage(dmg);
+            if (IsLowHealth && state != BehaviorState.SeekCover && state != BehaviorState.InCover)
+                TriggerSeekCover();
+            return;
+        }
+
         currentHealth -= dmg;
         if (currentHealth <= 0) { Destroy(gameObject); return; }
         if (IsLowHealth && state != BehaviorState.SeekCover && state != BehaviorState.InCover)

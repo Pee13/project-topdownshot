@@ -8,6 +8,7 @@ TagManager:
   - Cover
   - Bullet
   - Gun
+  - Tank
   layers:
   - Default
   - TransparentFX

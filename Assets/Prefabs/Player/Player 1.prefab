@@ -215,7 +215,8 @@ MonoBehaviour:
   BulletPrefab: {fileID: 4931507540007261577, guid: 6804fef1993cde14da4c742ebced7808, type: 3}
   MuzzlePoint: {fileID: 5130702835370732059}
   FireRate: 4
-  BulletSpeed: 14
+  BulletSpeed: 180
+  AngleOffset: -90
   GunshotNoiseRadius: 14
 --- !u!114 &6607241275877485916
 MonoBehaviour:
@@ -230,10 +231,14 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::TopDownTacticalAI.Player.Health
   MaxHP: 100
+  DestroyOnDeath: 1
   OnDeath:
     m_PersistentCalls:
       m_Calls: []
   OnDamaged:
+    m_PersistentCalls:
+      m_Calls: []
+  OnHealed:
     m_PersistentCalls:
       m_Calls: []
 --- !u!114 &7503221222267076220
@@ -318,13 +323,13 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 7901378004251039774}
   serializedVersion: 2
-  m_LocalRotation: {x: -0.001695872, y: 0.034482945, z: 0.73333985, w: -0.6789851}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 10.2, y: 0, z: 0}
   m_LocalScale: {x: 0.19846454, y: 0.20223297, z: 0.07562026}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 7310192555087581595}
-  m_LocalEulerAnglesHint: {x: -2.767, y: -2.83, z: -454.34}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &8919590063900185977
 GameObject:
   m_ObjectHideFlags: 0

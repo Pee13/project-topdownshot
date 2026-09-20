@@ -40,6 +40,8 @@ namespace TopDownTacticalAI.UI
         [Header("-- Optional Real Logos --")]
         [Tooltip("Optional real logo sprites. If empty, runtime placeholder shapes + text are used.")]
         [SerializeField] private Sprite[] _logoSprites;
+        [Tooltip("Fallback source textures for logos when Unity imports the PNGs as Texture2D instead of Sprite.")]
+        [SerializeField] private Texture2D[] _logoTextures;
 
         // Runtime state
         private Coroutine _splashCoroutine;
@@ -248,6 +250,19 @@ namespace TopDownTacticalAI.UI
             if (_progressPercentText != null) _progressPercentText.text = Mathf.RoundToInt(t01 * 100f) + "%";
         }
 
+        private Sprite GetLogoSprite(int index)
+        {
+            if (_logoSprites != null && index >= 0 && index < _logoSprites.Length && _logoSprites[index] != null)
+                return _logoSprites[index];
+
+            if (_logoTextures == null || index < 0 || index >= _logoTextures.Length || _logoTextures[index] == null)
+                return null;
+
+            var texture = _logoTextures[index];
+            return Sprite.Create(texture, new Rect(0f, 0f, texture.width, texture.height),
+                new Vector2(0.5f, 0.5f), 100f);
+        }
+
         private CanvasGroup CreateLogoCard(Transform parent, int index, string title, string sub)
         {
             var cardGO = new GameObject("LogoCard_" + index,
@@ -275,7 +290,8 @@ namespace TopDownTacticalAI.UI
             float padH = hasTitle ? Mathf.Max(sh * 0.22f, 160f) : sh * 0.08f;
             float padW = sw * 0.10f; // side padding
 
-            if (_logoSprites != null && index < _logoSprites.Length && _logoSprites[index] != null)
+            Sprite logoSprite = GetLogoSprite(index);
+            if (logoSprite != null)
             {
                 bool isUniversity = (index == 0);
 
@@ -284,14 +300,14 @@ namespace TopDownTacticalAI.UI
                     // Layout พิเศษสำหรับโลโก้มหาลัย:
                     //   [Sprite โลโก้]   [ข้อความ "Rajamangala University of Technology Suvarnabhumi"]
                     // ทั้งคู่อยู่กึ่งกลางจอ ไม่ยืดภาพ ตัวอักษรเป็น TMP text ไม่ใช่ sprite (หลีกเลี่ยง text ดำกลืน bg)
-                    BuildUniversityLayout(cardGO.transform, _logoSprites[0], sh, sw);
+                    BuildUniversityLayout(cardGO.transform, logoSprite, sh, sw);
                 }
                 else
                 {
                     var imgGO = new GameObject("LogoImage", typeof(RectTransform), typeof(Image));
                     imgGO.transform.SetParent(cardGO.transform, false);
                     var img = imgGO.GetComponent<Image>();
-                    img.sprite = _logoSprites[index];
+                    img.sprite = logoSprite;
                     img.preserveAspect = true;
                     img.raycastTarget = false;
 

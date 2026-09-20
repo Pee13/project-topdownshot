@@ -26,6 +26,7 @@ namespace TopDownTacticalAI.Memory
         {
             _blackboard.LastSeen.Record(position, direction, Time.time);
             _blackboard.HasMemory = true;
+            _blackboard.MemoryConfidence = 1f;   // เพิ่งเห็นสดๆ = มั่นใจเต็มที่
             _timer.Start(MemoryDuration);
         }
 
@@ -36,6 +37,10 @@ namespace TopDownTacticalAI.Memory
 
             _timer.Tick(deltaTime);
 
+            // ความมั่นใจในความจำลดลงเรื่อยๆ ตามเวลาที่ผ่านไปตั้งแต่เห็นครั้งสุดท้าย
+            // ยิ่งนานยิ่งไม่แน่ใจว่าตำแหน่งเดิมยังจริงอยู่ไหม (ข้อมูลเก่า = เชื่อน้อยลง)
+            _blackboard.MemoryConfidence = ComputeConfidence();
+
             if (_timer.IsExpired)
             {
                 Forget();
@@ -45,8 +50,22 @@ namespace TopDownTacticalAI.Memory
         public void Forget()
         {
             _blackboard.HasMemory = false;
+            _blackboard.MemoryConfidence = 0f;
             _blackboard.LastSeen.Clear();
             _timer.Reset();
+        }
+
+        /// <summary>เวลาที่ผ่านไปตั้งแต่เห็นเป้าหมายครั้งสุดท้าย (วินาที)</summary>
+        public float LastSeenAge => Mathf.Max(0f, MemoryDuration - _timer.Remaining);
+
+        /// <summary>
+        /// ความมั่นใจในข้อมูลที่จำได้ (0..1)
+        /// ลดลงเป็นเส้นตรงตามอายุความจำ — พอครบกำหนด (MemoryDuration) จะเหลือ 0 พอดี
+        /// </summary>
+        private float ComputeConfidence()
+        {
+            if (MemoryDuration <= 0f) return 0f;
+            return Mathf.Clamp01(1f - (LastSeenAge / MemoryDuration));
         }
 
         public float MemoryTimeRemaining => _timer.Remaining;

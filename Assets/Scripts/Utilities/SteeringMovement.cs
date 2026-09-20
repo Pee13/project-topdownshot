@@ -55,13 +55,25 @@ namespace TopDownTacticalAI.Utilities
             if (blendedDirection.sqrMagnitude < 0.0001f)
                 blendedDirection = desiredDirection;
 
-            // 3) ใช้ Whisker Raycast ตรวจสอบทิศที่ผสมแรงผลักทั้งหมดแล้วอีกที กันเคสโดนบังตรงๆ
+            // 3) ใช้ Whisker Raycast/Collider Cast ตรวจสอบทิศทางที่ผสมแล้ว
+            // Collider Cast สำคัญกว่าการยิงจากจุดกลาง เพราะศัตรูมีขนาดจริง
+            Collider2D selfCollider = self != null ? self.GetComponent<Collider2D>() : null;
+            var castHits = new RaycastHit2D[1];
+            var filter = new ContactFilter2D
+            {
+                useLayerMask = true,
+                layerMask = obstacleMask,
+                useTriggers = false
+            };
+
             foreach (float angle in WhiskerAngles)
             {
                 Vector2 testDir = angle == 0f ? blendedDirection : blendedDirection.Rotate(angle);
-                RaycastHit2D hit = Physics2D.Raycast(origin, testDir, probeDistance, obstacleMask);
+                bool blocked = selfCollider != null
+                    ? selfCollider.Cast(testDir, filter, castHits, probeDistance) > 0
+                    : Physics2D.Raycast(origin, testDir, probeDistance, obstacleMask).collider != null;
 
-                if (hit.collider == null)
+                if (!blocked)
                 {
                     // ทิศนี้โล่ง ใช้ได้เลย (ลำดับ WhiskerAngles เรียงจากใกล้ทิศเดิมไปไกลสุด)
                     return testDir;
@@ -93,6 +105,90 @@ namespace TopDownTacticalAI.Utilities
             }
 
             return push;
+        }
+
+        // ─────────────────────────────────────────────────────────────────
+        // Move With Collision Check (กันมุดกำแพงแบบ "หน้าแหลม")
+        // ─────────────────────────────────────────────────────────────────
+
+        /// <summary>
+        /// ย้ายตำแหน่งแบบ "เช็คก่อนก้าว" — ตรวจว่าก้าวนี้จะพาตัวไปชนกำแพงหรือไม่ ก่อนย้ายจริง
+        ///
+        /// ปัญหาที่แก้: สไปรต์หน้าแหลม (ปากยื่นเกินกรอบ collider) มุดเข้ากำแพงได้ก่อนที่
+        /// ระบบชนจะหยุด เพราะระบบชนหยุดเมื่อ "collider" แตะ ไม่ใช่เมื่อ "ภาพ" แตะ
+        /// วิธีนี้จึงเว้นระยะ (padding) จากกำแพงมากกว่าขนาด collider จริงเสมอ
+        ///
+        /// ทุก state ที่เดินด้วย transform.position ควรเรียกเมธอดนี้แทนการ + position ตรงๆ
+        /// เพื่อให้ทุกตัวมีพฤติกรรมเดียวกัน (Sup / Flanker / Tank ไม่ต่างกัน)
+        /// </summary>
+        /// <param name="self">Transform ของผู้เดิน</param>
+        /// <param name="step">เวกเตอร์การก้าว (ทิศ × ระยะในเฟรมนี้)</param>
+        /// <param name="obstacleMask">Layer กำแพง</param>
+        /// <param name="wallPadding">ระยะเผื่อรอบตัวนอกเหนือจาก collider (กันปลายแหลมพ้นกรอบ)</param>
+        /// <returns>ตำแหน่งใหม่ที่ปลอดภัย — ถ้าก้าวตรงตัน จะลองเลี้ยวทแยงซ้าย/ขวาให้เอง
+        /// ถ้าทุกทิศตัน คืนตำแหน่งเดิม (ยืนรอ ไม่ฝืนมุดกำแพง)</returns>
+        public static Vector2 MoveWithCollisionCheck(
+            Transform self, Vector2 step, LayerMask obstacleMask, float wallPadding = 0.15f)
+        {
+            Vector2 from = self.position;
+            float distance = step.magnitude;
+            if (distance < 0.0001f) return from;
+
+            float radius = GetBodyRadius(self) + wallPadding;
+            Vector2 dir = step / distance;
+
+            // ทางตรงโล่ง? → เดินได้เลย
+            if (!IsPathBlocked(from, dir, distance, radius, obstacleMask))
+                return from + step;
+
+            // ทางตรงตัน → ลองเลี้ยวทแยงซ้าย/ขวา (เดินอ้อมต่อ ไม่หยุดค้าง)
+            Vector2 perp = new Vector2(-dir.y, dir.x);
+            Vector2[] alternatives =
+            {
+                (dir + perp * 0.9f).normalized,
+                (dir - perp * 0.9f).normalized,
+                perp,
+                -perp
+            };
+
+            foreach (var alt in alternatives)
+            {
+                if (!IsPathBlocked(from, alt, distance, radius, obstacleMask))
+                    return from + alt * distance;
+            }
+
+            // ทุกทิศตัน → อยู่กับที่ (ดีกว่ามุดกำแพง)
+            return from;
+        }
+
+        /// <summary>แนวทางจาก → ปลายทาง ตัดผ่านกำแพงหรือเปล่า (ใช้ CircleCast ขนาดเท่าตัว)</summary>
+        private static bool IsPathBlocked(Vector2 from, Vector2 dir, float distance, float radius, LayerMask obstacleMask)
+        {
+            if (distance < 0.0001f) return false;
+
+            var filter = new ContactFilter2D
+            {
+                useLayerMask = true,
+                layerMask = obstacleMask,
+                useTriggers = false
+            };
+            var hits = new RaycastHit2D[4];
+
+            int count = Physics2D.CircleCast(from, radius, dir, filter, hits, distance + 0.05f);
+            for (int i = 0; i < count; i++)
+                if (hits[i].collider != null) return true;
+
+            // จุดปลายทางต้องไม่อยู่ในสิ่งกีดขวางด้วย
+            return PhysicsUtility.IsPositionBlocked(from + dir * distance, radius, obstacleMask);
+        }
+
+        /// <summary>รัศมีครอบตัวของ collider (อ่านจาก bounds จริง — คลุมทั้งตัวไม่ว่าสไปรต์จะแหลม)</summary>
+        public static float GetBodyRadius(Transform self)
+        {
+            var collider = self.GetComponent<Collider2D>();
+            if (collider == null) return 0.5f;
+            var e = collider.bounds.extents;
+            return Mathf.Max(e.x, e.y);
         }
     }
 }

@@ -3,17 +3,25 @@ using UnityEngine;
 namespace TopDownTacticalAI.Player
 {
     /// <summary>
-    /// พฤติกรรมกระสุน: ทำดาเมจเมื่อชนเป้าหมายที่มี Health แล้ว "ปักค้าง" อยู่ตรงจุดที่ชน
-    /// (แทนที่จะหายไปทันที) เหมือนกระสุนปักเข้าไปในกำแพง/ตัวละครจริงๆ
-    /// แล้วค่อยลบตัวเองออกหลังจากปักอยู่สักพัก (กันกระสุนสะสมเกลื่อนฉากตลอดไป)
+    /// พฤติกรรมกระสุน: พุ่งไปข้างหน้า ทำดาเมจ แล้ว "ปักค้าง" อยู่ตรงจุดที่ชน
+    /// รองรับทั้งกระสุนของผู้เล่นและกระสุนของ AI
     /// </summary>
+    [RequireComponent(typeof(Rigidbody2D), typeof(Collider2D))]
     public class Bullet : MonoBehaviour
     {
-        public float Damage = 10f;
-        [Tooltip("อายุกระสุนถ้ายังไม่ชนอะไรเลย (บินไปเรื่อยๆ)")]
+        [Header("Shooter Type")]
+        [Tooltip("ติ๊กถูกถ้ากระสุนนี้เป็นของ Enemy (เพื่อยิงโดน Player และไม่โดนพวกเดียวกัน)")]
+        public bool IsEnemyBullet = false;
+
+        [Header("Bullet Movement & Damage")]
+        public float Speed = 18f; // ความเร็วพุ่งที่เหมาะสมในหน่วยฟิสิกส์ 2D
+        public float Damage = 20f;
+        
+        [Header("Duration Settings")]
+        [Tooltip("อายุกระสุนถ้ายังไม่ชนอะไรเลย")]
         public float LifeTime = 3f;
-        [Tooltip("ระยะเวลาที่กระสุนจะ 'ปักค้าง' อยู่หลังชนอะไรสักอย่าง ก่อนจะหายไปจริงๆ")]
-        public float StickDuration = 5f;
+        [Tooltip("ระยะเวลาที่กระสุนจะ 'ปักค้าง' อยู่หลังชน")]
+        public float StickDuration = 3f;
 
         private bool _hasHit;
         private Rigidbody2D _rb;
@@ -23,20 +31,51 @@ namespace TopDownTacticalAI.Player
         {
             _rb = GetComponent<Rigidbody2D>();
             _collider = GetComponent<Collider2D>();
+
+            if (_rb != null)
+            {
+                _rb.gravityScale = 0f;
+            }
         }
 
         private void Start()
         {
-            // ใช้ Invoke (ยกเลิกได้จริงด้วย CancelInvoke) แทน Destroy(gameObject, delay) ตรงๆ
-            // เพื่อให้ตอนปักค้างแล้ว เปลี่ยนกำหนดเวลาลบใหม่ได้ถูกต้อง ไม่ชนกับตัวจับเวลาเดิม
+            if (_rb != null)
+            {
+                _rb.linearVelocity = transform.up * Speed;
+            }
+
             Invoke(nameof(DestroySelf), LifeTime);
+        }
+
+        private void Update()
+        {
+            if (!_hasHit && (_rb == null || _rb.bodyType == RigidbodyType2D.Kinematic))
+            {
+                transform.position += transform.up * (Speed * Time.deltaTime);
+            }
         }
 
         private void OnTriggerEnter2D(Collider2D other)
         {
-            if (_hasHit) return; // กันชนซ้ำหลายครั้งในเฟรมเดียวกัน
+            if (_hasHit || other.isTrigger) return;
+
+            // 1. กระสุนของฝั่งผู้เล่น: ไม่ชนผู้เล่นเอง
+            if (!IsEnemyBullet)
+            {
+                if (other.CompareTag("Player") || other.gameObject.layer == LayerMask.NameToLayer("Player"))
+                    return;
+            }
+            // 2. กระสุนของฝั่งศัตรู (AI): ไม่ชนศัตรูตัวอื่นหรือตัวเอง
+            else
+            {
+                if (other.CompareTag("Enemy") || other.gameObject.layer == LayerMask.NameToLayer("EnemyBullet"))
+                    return;
+            }
+
             _hasHit = true;
 
+            // สั่งหักเลือดเป้าหมาย
             if (other.TryGetComponent(out Health health))
             {
                 health.TakeDamage(Damage);
@@ -45,24 +84,19 @@ namespace TopDownTacticalAI.Player
             EmbedInto(other);
         }
 
-        /// <summary>หยุดกระสุนและ "ปัก" ค้างอยู่ตรงจุดชน แทนที่จะลบทิ้งทันที</summary>
         private void EmbedInto(Collider2D other)
         {
-            // หยุดการเคลื่อนที่ทันที
             if (_rb != null)
             {
                 _rb.linearVelocity = Vector2.zero;
                 _rb.bodyType = RigidbodyType2D.Kinematic;
             }
 
-            // ปิด Collider ตัวเองกันไปโดนซ้ำ/ชนอย่างอื่นต่อ
             if (_collider != null)
                 _collider.enabled = false;
 
-            // ฝากตัวเองไว้กับสิ่งที่โดนชน เผื่อสิ่งนั้นเคลื่อนที่ (เช่นปักติดตัวศัตรูที่ยังเดินต่อ)
             transform.SetParent(other.transform);
 
-            // ยกเลิกตัวจับเวลาเดิม (ตอนยังบินอยู่) แล้วตั้งเวลาลบใหม่นับจากตอนปักค้าง
             CancelInvoke(nameof(DestroySelf));
             Invoke(nameof(DestroySelf), StickDuration);
         }

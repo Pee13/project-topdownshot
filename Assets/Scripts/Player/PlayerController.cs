@@ -54,6 +54,7 @@ namespace TopDownTacticalAI.Player
         public bool IsDashing { get; private set; }
 
         private Rigidbody2D _rb;
+        private Collider2D _playerCollider;
         private Vector2 _input;
         private Vector2 _lastFacingDirection = Vector2.up;
         private bool _isRunning;
@@ -66,6 +67,7 @@ namespace TopDownTacticalAI.Player
         private void Awake()
         {
             _rb = GetComponent<Rigidbody2D>();
+            _playerCollider = GetComponent<Collider2D>();
 
             // ล็อคการหมุนของ Physics ไว้ (เราหมุนผู้เล่นเองผ่าน PlayerShoot ตามเมาส์อยู่แล้ว
             // ถ้าไม่ล็อค พอชนกำแพง/สิ่งกีดขวางเอียงๆ แรงกระแทกจาก Physics จะดันหมุนแข่งกับโค้ด ทำให้ดูเหมือนควงสวิง)
@@ -76,6 +78,10 @@ namespace TopDownTacticalAI.Player
 
             // Continuous กันการทะลุกำแพงตอนเคลื่อนที่เร็วมากๆ (เช่นตอน Dash)
             _rb.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
+            _rb.bodyType = RigidbodyType2D.Dynamic;
+            _rb.gravityScale = 0f;
+            _rb.linearDamping = 0f;
+            _rb.freezeRotation = true;
 
             // กันเผลอลืมตั้งค่า Distance เป็น 0 หรือติดลบ ซึ่งจะทำให้ Dash จบทันทีที่เริ่ม (ระยะ 0)
             if (DashDistance <= 0f) DashDistance = 1.5f;
@@ -148,18 +154,44 @@ namespace TopDownTacticalAI.Player
             // ก้าวในเฟรมนี้ต้องไม่เกินระยะที่เหลือ กันพุ่งเลย DashDistance ไปในสเต็ปสุดท้าย
             float stepDistance = Mathf.Min(DashSpeed * Time.fixedDeltaTime, remainingDistance);
 
-            RaycastHit2D hit = Physics2D.Raycast(_rb.position, _dashDirection, stepDistance + DashSkinWidth, ObstacleMask);
+            // Cast the player's actual collider, not just a ray from its centre.
+            // This prevents the body from clipping through thin/rotated walls.
+            RaycastHit2D hit = default;
+            if (_playerCollider != null)
+            {
+                var filter = new ContactFilter2D
+                {
+                    useLayerMask = true,
+                    layerMask = ObstacleMask,
+                    useTriggers = false
+                };
+                var castHits = new RaycastHit2D[1];
+                int hitCount = _playerCollider.Cast(
+                    _dashDirection,
+                    filter,
+                    castHits,
+                    stepDistance + DashSkinWidth);
+                if (hitCount > 0)
+                    hit = castHits[0];
+            }
+            else
+            {
+                hit = Physics2D.Raycast(
+                    _rb.position,
+                    _dashDirection,
+                    stepDistance + DashSkinWidth,
+                    ObstacleMask);
+            }
 
             if (hit.collider != null)
             {
-                // เจอกำแพง: เดินไปแค่ติดผิวกำแพง (เว้นระยะเล็กน้อย) แล้วจบ Dash ทันที แทนที่จะฝืนพุ่งต่อ
                 float safeDistance = Mathf.Max(0f, hit.distance - DashSkinWidth);
-                _rb.position = _rb.position + _dashDirection * safeDistance;
+                _rb.MovePosition(_rb.position + _dashDirection * safeDistance);
                 EndDash();
                 return;
             }
 
-            _rb.position = _rb.position + _dashDirection * stepDistance;
+            _rb.MovePosition(_rb.position + _dashDirection * stepDistance);
             _rb.linearVelocity = _dashDirection * DashSpeed; // ไว้ให้ Physics/Animation อื่นอ่านความเร็วปัจจุบันได้ต่อ
         }
 

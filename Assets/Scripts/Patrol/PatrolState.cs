@@ -99,7 +99,9 @@ namespace TopDownTacticalAI.Patrol
                 return;
             }
 
-            _self.position = currentPos + direction * _moveSpeed * deltaTime;
+            // เดินแบบ "เช็คก่อนก้าว" — กันมุดกำแพงเหมือน state อื่น (ระบบกลาง SteeringMovement)
+            _self.position = SteeringMovement.MoveWithCollisionCheck(
+                _self, direction * (_moveSpeed * deltaTime), _obstacleMask);
 
             if (direction.sqrMagnitude > 0.001f)
             {

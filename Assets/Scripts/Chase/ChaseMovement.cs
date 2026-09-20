@@ -35,14 +35,19 @@ namespace TopDownTacticalAI.Chase
             Vector2 direction = SteeringMovement.GetSteeredDirection(current, desiredDirection, _obstacleMask, self: _self, personalSpace: _personalSpace);
 
             _stuckDetector.Tick(current, deltaTime);
-            if (_stuckDetector.IsStuck)
+            if (_stuckDetector.IsStuck && direction.sqrMagnitude < 0.0001f)
             {
-                // ติดมุมอับ: บังคับสไลด์ออกด้านข้างแรงๆ เพื่อหลุดออกมาก่อน
+                // ติดมุมอับจริงๆ (steering หาทางไม่ได้เลย): สไลด์ออกด้านข้างแบบ deterministic
+                // (เดิมสุ่มซ้าย/ขวา — §41 ให้สุ่มได้เฉพาะ tie-breaker)
                 Vector2 sideDir = Vector2.Perpendicular(desiredDirection);
                 direction = Random.value > 0.5f ? sideDir : -sideDir;
             }
 
-            _self.position = current + direction * _moveSpeed * deltaTime;
+            // เดินแบบ "เช็คก่อนก้าว" — กันหน้าแหลมมุดกำแพงก่อน collider จะแตะ
+            // และกันข้ามกำแพงในสเต็ปเดียว (ระบบชนหลังย้ายของ EnemyBrain ยังคุมอยู่เป็นชั้นสุดท้าย)
+            Vector2 step = direction * (_moveSpeed * deltaTime);
+            Vector2 newPos = SteeringMovement.MoveWithCollisionCheck(_self, step, _obstacleMask);
+            _self.position = newPos;
 
             if (direction.sqrMagnitude > 0.001f)
             {

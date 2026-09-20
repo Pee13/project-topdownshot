@@ -68,9 +68,9 @@ namespace TopDownTacticalAI.Dodge
 
         public void Enter()
         {
-            if (BulletDetector.IsBulletIncoming(_self.position, _detectRadius, _bulletMask, out Vector2 vel, out _))
+            if (BulletDetector.IsBulletIncoming(_self.position, _detectRadius, _bulletMask, out Vector2 vel, out Vector2 bulletPos))
             {
-                Vector2 candidate = FindDodgeDestinationViaInfluenceMap(vel);
+                Vector2 candidate = FindDodgeDestinationViaInfluenceMap(vel, bulletPos);
                 Vector2 dodgeDir = (candidate - (Vector2)_self.position).normalized;
 
                 _blackboard.DodgeDirection = dodgeDir;
@@ -85,7 +85,7 @@ namespace TopDownTacticalAI.Dodge
         /// แล้วให้ InfluenceMap หาช่องตารางที่คะแนนรวมดีที่สุด (อันตรายน้อย + ปลอดภัยสูง + โอกาสโจมตีถ้ามี)
         /// ถ้าหาไม่เจอเลย (เช่นโดนล้อมมุมอับ) จะ Fallback กลับไปใช้วิธีเบี่ยงตั้งฉากแบบเดิมแทน
         /// </summary>
-        private Vector2 FindDodgeDestinationViaInfluenceMap(Vector2 incomingBulletVelocity)
+        private Vector2 FindDodgeDestinationViaInfluenceMap(Vector2 incomingBulletVelocity, Vector2 bulletPosition)
         {
             Vector2 selfPos = _self.position;
 
@@ -112,17 +112,25 @@ namespace TopDownTacticalAI.Dodge
             if (foundBest && Vector2.Distance(selfPos, best.WorldPosition) > 0.1f)
                 return best.WorldPosition;
 
-            // Fallback: วิธีเดิม (เบี่ยงตั้งฉากจากทิศกระสุน) เผื่อ Influence Map หาจุดไม่ได้เลย (เช่นโดนล้อมมุมอับ)
-            Vector2 dodgeDir = SafePositionFinder.GetDodgeDirection(incomingBulletVelocity);
-            Vector2 candidate = selfPos + dodgeDir * _dodgeDistance;
+            // Fallback: ให้คะแนนทิศหลบเอง (§8/§18) เผื่อ Influence Map หาจุดไม่ได้เลย (เช่นโดนล้อมมุมอับ)
+            // ไม่สุ่มซ้าย/ขวาแบบเดิมแล้ว — เลือกจากการทำนายแนวกระสุน + กำแพง + เพื่อน + ผู้เล่น + ที่กำบัง
+            Vector2 playerPos = _blackboard.CurrentTarget != null
+                ? (Vector2)_blackboard.CurrentTarget.position
+                : selfPos;
 
-            if (PhysicsUtility.IsPositionBlocked(candidate, 1.2f, _obstacleMask))
+            Vector2 scoredDir = SafePositionFinder.GetDodgeDirection(
+                selfPos, bulletPosition, incomingBulletVelocity,
+                _dodgeDistance, _obstacleMask, playerPos);
+
+            if (scoredDir.sqrMagnitude > 0.0001f)
             {
-                Vector2 oppositeCandidate = selfPos - dodgeDir * _dodgeDistance;
-                candidate = PhysicsUtility.IsPositionBlocked(oppositeCandidate, 1.2f, _obstacleMask) ? selfPos : oppositeCandidate;
+                Vector2 scoredCandidate = selfPos + scoredDir * _dodgeDistance;
+                if (!PhysicsUtility.IsPositionBlocked(scoredCandidate, 1.2f, _obstacleMask))
+                    return scoredCandidate;
             }
 
-            return candidate;
+            // ทุกทิศที่ให้คะแนนไปไม่ได้เลย → อยู่กับที่ (ดีกว่าหลบเข้ากำแพง/เข้ากระสุน)
+            return selfPos;
         }
 
         public void Tick(float deltaTime)
@@ -175,10 +183,10 @@ namespace TopDownTacticalAI.Dodge
         }
 
         /// <summary>ใช้ให้ EnemyBrain เช็คภายนอกว่าควรเข้า State นี้หรือไม่ โดยไม่ต้อง Enter ก่อน</summary>
-        public static bool DetectIncomingThreat(Vector2 origin, LayerMask bulletMask, float detectRadius, float dodgeChance = 0.7f)
+        public static bool DetectIncomingThreat(Vector2 origin, LayerMask bulletMask, float detectRadius)
         {
-            bool incoming = BulletDetector.IsBulletIncoming(origin, detectRadius, bulletMask, out _, out _);
-            return DodgeDecision.ShouldDodge(incoming, dodgeChance);
+            bool incoming = BulletDetector.IsBulletIncoming(origin, detectRadius, bulletMask, out Vector2 bulletVel, out Vector2 bulletPos);
+            return DodgeDecision.ShouldDodge(incoming, origin, bulletPos, bulletVel);
         }
 
         public void FixedTick(float fixedDeltaTime) { }

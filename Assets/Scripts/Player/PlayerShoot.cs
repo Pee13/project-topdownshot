@@ -3,22 +3,19 @@ using TopDownTacticalAI.Tactical;
 
 namespace TopDownTacticalAI.Player
 {
-    /// <summary>
-    /// ควบคุมการเล็ง (หันปืนเข้าหาเมาส์) และยิงกระสุนของผู้เล่น
-    /// กระสุนที่ยิงต้องอยู่บน Layer ที่ตรงกับ PlayerBulletMask ใน EnemyBrain
-    /// ทุกนัดที่ยิงจะส่งเสียงดัง (Sound Investigation) ให้ศัตรูในระยะได้ยินแม้จะไม่เห็นตัวก็ตาม
-    ///
-    /// ถ้ามี PlayerMana ติดอยู่ที่ตัวเดียวกัน การยิงจะใช้ Mana ทุกนัด (ตามสเปคเอกสารบทที่ 3.3.1.1)
-    /// ยิงไม่ได้ถ้า Mana ไม่พอ — ถ้าไม่มี PlayerMana ติดอยู่เลย จะยิงได้อิสระแบบเดิม (ไม่บังคับต้องมี)
-    /// </summary>
     public class PlayerShoot : MonoBehaviour
     {
+        [Header("Bullet Setup")]
         public GameObject BulletPrefab;
         public Transform MuzzlePoint;
         public float FireRate = 4f;
-        public float BulletSpeed = 14f;
+        public float BulletSpeed = 180f;
 
-        [Tooltip("ระยะที่เสียงปืนไปถึง (ดังกว่าเสียงเดิน/วิ่งมาก)")]
+        [Header("Aim Settings")]
+        [Tooltip("สำหรับโมเดลหันขวา ให้ตั้งค่าเป็น 0")]
+        public float AngleOffset = 0f;
+
+        [Header("Sound")]
         public float GunshotNoiseRadius = 14f;
 
         private Camera _cam;
@@ -28,7 +25,7 @@ namespace TopDownTacticalAI.Player
         private void Awake()
         {
             _cam = Camera.main;
-            _mana = GetComponent<PlayerMana>(); // ไม่บังคับต้องมี ถ้าไม่มีจะยิงได้อิสระเหมือนเดิม
+            _mana = GetComponent<PlayerMana>();
         }
 
         private void Update()
@@ -49,12 +46,23 @@ namespace TopDownTacticalAI.Player
 
         private void AimAtMouse()
         {
+            if (_cam == null) _cam = Camera.main;
             if (_cam == null) return;
 
-            Vector3 mouseWorld = _cam.ScreenToWorldPoint(Input.mousePosition);
+            Vector3 mousePos = Input.mousePosition;
+            mousePos.z = -_cam.transform.position.z;
+            Vector3 mouseWorld = _cam.ScreenToWorldPoint(mousePos);
+
             Vector2 direction = ((Vector2)mouseWorld - (Vector2)transform.position).normalized;
-            float angle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg - 90f;
-            transform.rotation = Quaternion.Euler(0, 0, angle);
+            
+            // หมุนแกน Right เข้าหาเมาส์โดยตรง
+            float angle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg + AngleOffset;
+            transform.rotation = Quaternion.Euler(0f, 0f, angle);
+
+            // 🟢 เส้นเขียว: หน้าตัวละครจริง
+            Debug.DrawRay(transform.position, transform.right * 8f, Color.green);
+            // 🔴 เส้นแดง: ตำแหน่งเมาส์
+            Debug.DrawLine(transform.position, mouseWorld, Color.red);
         }
 
         private void Shoot()
@@ -62,14 +70,14 @@ namespace TopDownTacticalAI.Player
             if (BulletPrefab == null || MuzzlePoint == null) return;
 
             GameObject bulletObj = Instantiate(BulletPrefab, MuzzlePoint.position, MuzzlePoint.rotation);
+            
+            // สั่งให้กระสุนพุ่งไปข้างหน้าตามแกน Right (ไม่ใช่ Up แล้ว)
             if (bulletObj.TryGetComponent(out Rigidbody2D rb))
             {
-                rb.linearVelocity = MuzzlePoint.up * BulletSpeed;
+                rb.linearVelocity = MuzzlePoint.right * BulletSpeed;
             }
 
             _mana?.ConsumeForShot();
-
-            // เสียงปืนดังไปไกล ศัตรูที่อยู่ในระยะจะได้ยินแล้วมาตรวจสอบ แม้จะยังไม่เห็นตัวผู้เล่นเลยก็ตาม
             GroupAI.Instance?.EmitNoise(transform.position, GunshotNoiseRadius);
         }
     }

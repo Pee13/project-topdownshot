@@ -5977,6 +5977,10 @@ MonoBehaviour:
   mouseSensitivitySlider: {fileID: 907247445}
   screenShakeToggle: {fileID: 651335541}
   showFpsToggle: {fileID: 623601531}
+  effectsQualitySlider: {fileID: 0}
+  menuVFXToggle: {fileID: 0}
+  backgroundVFXToggle: {fileID: 0}
+  screenEffectsToggle: {fileID: 0}
 --- !u!1 &1030005904
 GameObject:
   m_ObjectHideFlags: 0
@@ -13949,6 +13953,10 @@ MonoBehaviour:
   mouseSensitivitySlider: {fileID: 0}
   screenShakeToggle: {fileID: 0}
   showFpsToggle: {fileID: 0}
+  effectsQualitySlider: {fileID: 0}
+  menuVFXToggle: {fileID: 0}
+  backgroundVFXToggle: {fileID: 0}
+  screenEffectsToggle: {fileID: 0}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

@@ -19,11 +19,16 @@ namespace TopDownTacticalAI.DebugTools
         [Tooltip("แสดงเฉพาะชื่อ State สั้นๆ พอ ไม่ต้องมีคำอธิบายเหตุผลยาวๆ")]
         public bool CompactMode = false;
 
+        [Tooltip("แสดงคะแนนและความมั่นใจของระบบตัดสินใจ (Threat / Confidence / Action Score)\n" +
+                 "ใช้ตอบคำถามว่า \"AI เลือกสิ่งนี้เพราะอะไร\" — ปิดได้ถ้า HUD รกเกินไป")]
+        public bool ShowScoringMetrics = true;
+
         [Header("Style")]
         public Vector2 ScreenOffset = new Vector2(0f, -60f);
         public int FontSize = 12;
 
         private EnemyBrain _brain;
+        private TopDownTacticalAI.Player.Health _health;
         private static readonly System.Collections.Generic.Dictionary<EnemyState, Color> StateColors = new System.Collections.Generic.Dictionary<EnemyState, Color>
         {
             { EnemyState.Patrol, new Color(0.6f, 0.6f, 0.6f) },
@@ -33,6 +38,11 @@ namespace TopDownTacticalAI.DebugTools
             { EnemyState.Combat, new Color(1f, 0.25f, 0.25f) },
             { EnemyState.Cover, new Color(0.3f, 0.6f, 1f) },
             { EnemyState.Dodge, new Color(1f, 0.2f, 0.8f) },
+            { EnemyState.Retreat, new Color(1f, 0.5f, 0.1f) },
+            { EnemyState.SeekHeal, new Color(0.4f, 1f, 0.5f) },
+            { EnemyState.HealAlly, new Color(0.3f, 1f, 0.4f) },
+            { EnemyState.ProtectHealer, new Color(1f, 0.85f, 0.3f) },
+            { EnemyState.PeelAlly, new Color(0.9f, 0.6f, 0.1f) },
         };
 
         private static readonly System.Collections.Generic.Dictionary<EnemyState, string> StateThaiNames = new System.Collections.Generic.Dictionary<EnemyState, string>
@@ -44,11 +54,17 @@ namespace TopDownTacticalAI.DebugTools
             { EnemyState.Combat, "ปะทะ" },
             { EnemyState.Cover, "หลบกำบัง" },
             { EnemyState.Dodge, "หลบกระสุน" },
+            { EnemyState.Retreat, "ถอยหา Healer" },
+            { EnemyState.SeekHeal, "รอฮีล" },
+            { EnemyState.HealAlly, "ฮีลเพื่อน" },
+            { EnemyState.ProtectHealer, "บัง Healer" },
+            { EnemyState.PeelAlly, "สกัดผู้เล่น" },
         };
 
         private void Awake()
         {
             _brain = GetComponent<EnemyBrain>();
+            _health = GetComponent<TopDownTacticalAI.Player.Health>();
         }
 
         private void OnGUI()
@@ -72,8 +88,8 @@ namespace TopDownTacticalAI.DebugTools
             GUIStyle boxStyle = new GUIStyle(GUI.skin.box) { fontSize = FontSize, alignment = TextAnchor.UpperLeft, wordWrap = true };
             GUIStyle headerStyle = new GUIStyle(GUI.skin.label) { fontSize = FontSize + 2, fontStyle = FontStyle.Bold, normal = { textColor = stateColor } };
 
-            float boxWidth = CompactMode ? 90f : 220f;
-            float boxHeight = CompactMode ? 24f : 124f;
+            float boxWidth = CompactMode ? 90f : (ShowScoringMetrics ? 280f : 220f);
+            float boxHeight = CompactMode ? 24f : (ShowScoringMetrics ? 250f : 124f);
 
             Rect rect = new Rect(guiX - boxWidth * 0.5f, guiY - boxHeight, boxWidth, boxHeight);
 
@@ -90,9 +106,41 @@ namespace TopDownTacticalAI.DebugTools
                 if (info.CanSeeTarget)
                     GUILayout.Label($"ระยะ: {info.DistanceToTarget:F1} m");
 
-                GUILayout.Label($"HP: {info.CurrentHP:F0}/{info.MaxHP:F0}   กระสุน: {info.CurrentAmmo}/{info.MaxAmmo}{(info.IsReloading ? " (รีโหลด)" : "")}");
+                // อ่าน HP จาก Health component โดยตรง (แหล่งความจริงเดียว)
+                // ถ้าอ่านจาก EnemyBrain อย่างเดียว ค่าจะค้างเมื่อ EnemyBrain ถูกปิด
+                // หรือเมื่อเลือดถูกหักผ่าน Health โดยที่ blackboard ยังไม่อัปเดต
+                float shownHP = _health != null ? _health.CurrentHP : info.CurrentHP;
+                float shownMaxHP = _health != null ? _health.MaxHP : info.MaxHP;
+                GUILayout.Label($"HP: {shownHP:F0}/{shownMaxHP:F0}   กระสุน: {info.CurrentAmmo}/{info.MaxAmmo}{(info.IsReloading ? " (รีโหลด)" : "")}");
                 GUILayout.Label($"คิดว่า: {info.Reason}", new GUIStyle(GUI.skin.label) { fontSize = FontSize - 1, wordWrap = true, fontStyle = FontStyle.Italic });
                 GUILayout.Label($"คะแนนความพยายาม: {info.DeterminationScore:F0}", new GUIStyle(GUI.skin.label) { fontSize = FontSize - 1 });
+
+                // ── คะแนนและความมั่นใจของระบบตัดสินใจ (§52) ──
+                // ส่วนนี้ตอบคำถามว่า "AI เลือกสิ่งนี้เพราะอะไร" และ
+                // "ข้อมูลที่ใช้ตัดสินใจเชื่อถือได้แค่ไหน"
+                if (ShowScoringMetrics)
+                {
+                    var smallLabel = new GUIStyle(GUI.skin.label) { fontSize = FontSize - 1 };
+                    var warnLabel = new GUIStyle(smallLabel) { normal = { textColor = new Color(1f, 0.5f, 0.4f) } };
+
+                    GUILayout.Label("── คะแนนการตัดสินใจ ──", smallLabel);
+
+                    float threat = info.SmoothedThreat;
+                    GUILayout.Label(
+                        $"ภัยคุกคาม: {threat:F2} ({TopDownTacticalAI.Tactical.RiskEvaluation.DescribeThreat(threat)})",
+                        threat >= 0.75f ? warnLabel : smallLabel);
+
+                    GUILayout.Label($"เลือด: {info.SelfHealthPercent * 100f:F0}%   เพื่อนใกล้: {info.NearbyAllyCount}");
+
+                    GUILayout.Label($"Action Score: {info.CurrentActionScore:F2}");
+
+                    GUILayout.Label("── ความมั่นใจในข้อมูล ──", smallLabel);
+                    GUILayout.Label($"มองเห็น: {info.VisionConfidence:F2}   ความจำ: {info.MemoryConfidence:F2}");
+                    GUILayout.Label($"ทำนาย: {info.PredictionConfidence:F2}   ระยะ: {info.DistanceScore:F2}");
+
+                    if (!string.IsNullOrEmpty(info.CurrentActionReason))
+                        GUILayout.Label($"หมายเหตุ: {info.CurrentActionReason}", smallLabel);
+                }
             }
 
             GUILayout.EndArea();

@@ -192,25 +192,68 @@ namespace TopDownTacticalAI.UI
 
         private void SetupBackground()
         {
+            var canvas = FindAnyObjectByType<Canvas>();
+
+            if (backgroundImageComponent == null && canvas != null)
+            {
+                // Reuse an existing scene background that already has a sprite.
+                // This prevents creating a second blank white Image over the artwork.
+                var canvasImages = canvas.GetComponentsInChildren<Image>(true);
+                foreach (var image in canvasImages)
+                {
+                    if (image == null || image == backgroundImageComponent) continue;
+                    if (image.gameObject.name == "BackgroundImage" && image.sprite != null)
+                    {
+                        backgroundImageComponent = image;
+                        break;
+                    }
+                }
+            }
+
             if (backgroundImageComponent == null)
             {
-                // Create background image if not assigned
-                var bgGO = new GameObject("BackgroundImage");
-                bgGO.transform.SetParent(transform);
+                // Create the background under the UI Canvas, not under this controller.
+                var bgGO = new GameObject("BackgroundImage", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+                bgGO.transform.SetParent(canvas != null ? canvas.transform : transform, false);
                 bgGO.transform.SetAsFirstSibling();
-                backgroundImageComponent = bgGO.AddComponent<Image>();
+                backgroundImageComponent = bgGO.GetComponent<Image>();
                 var rt = backgroundImageComponent.rectTransform;
                 rt.anchorMin = Vector2.zero;
                 rt.anchorMax = Vector2.one;
                 rt.sizeDelta = Vector2.zero;
                 rt.anchoredPosition = Vector2.zero;
+                rt.localScale = Vector3.one;
+            }
+            else if (canvas != null && backgroundImageComponent.transform.parent != canvas.transform)
+            {
+                // Repair an older runtime-created background that was parented to the controller.
+                backgroundImageComponent.transform.SetParent(canvas.transform, false);
+                backgroundImageComponent.transform.SetAsFirstSibling();
+            }
+
+            // Keep exactly one BackgroundImage. Duplicate runtime-created images can
+            // otherwise stack over the menu and make the background look doubled.
+            if (canvas != null)
+            {
+                backgroundImageComponent.transform.SetAsFirstSibling();
+                foreach (var image in canvas.GetComponentsInChildren<Image>(true))
+                {
+                    if (image != null && image != backgroundImageComponent
+                        && image.gameObject.name == "BackgroundImage")
+                    {
+                        image.gameObject.SetActive(false);
+                    }
+                }
             }
 
             if (backgroundImage != null)
             {
                 backgroundImageComponent.sprite = backgroundImage;
                 backgroundImageComponent.type = Image.Type.Simple;
-                backgroundImageComponent.preserveAspect = true;
+                // Stretch the background across the entire Canvas. Preserving the
+                // source aspect ratio created side bars when the Game view ratio
+                // differed from the source artwork.
+                backgroundImageComponent.preserveAspect = false;
                 backgroundImageComponent.color = Color.white;
             }
             else if (theme != null && theme.panelBackground != null)

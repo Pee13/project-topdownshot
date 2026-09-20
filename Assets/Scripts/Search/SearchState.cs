@@ -129,7 +129,7 @@ namespace TopDownTacticalAI.Search
 
             Vector2 desiredDir = _investigation.GetDirection(currentPos, lastSeenPos);
             Vector2 dir = SteeringMovement.GetSteeredDirection(currentPos, desiredDir, _obstacleMask, self: _self, personalSpace: _personalSpace);
-            _self.position = currentPos + dir * _moveSpeed * deltaTime;
+            _self.position = SteeringMovement.MoveWithCollisionCheck(_self, dir * (_moveSpeed * deltaTime), _obstacleMask);
             RotateTowards(dir);
         }
 
@@ -146,7 +146,7 @@ namespace TopDownTacticalAI.Search
 
             Vector2 desiredDir = (_pursuitTarget - currentPos).normalized;
             Vector2 dir = SteeringMovement.GetSteeredDirection(currentPos, desiredDir, _obstacleMask, self: _self, personalSpace: _personalSpace);
-            _self.position = currentPos + dir * _moveSpeed * deltaTime;
+            _self.position = SteeringMovement.MoveWithCollisionCheck(_self, dir * (_moveSpeed * deltaTime), _obstacleMask);
             RotateTowards(dir);
         }
 
@@ -173,7 +173,7 @@ namespace TopDownTacticalAI.Search
                 {
                     Vector2 desiredDir = (target - currentPos).normalized;
                     Vector2 dir = SteeringMovement.GetSteeredDirection(currentPos, desiredDir, _obstacleMask, self: _self, personalSpace: _personalSpace);
-                    _self.position = currentPos + dir * _moveSpeed * deltaTime;
+                    _self.position = SteeringMovement.MoveWithCollisionCheck(_self, dir * (_moveSpeed * deltaTime), _obstacleMask);
                     RotateTowards(dir);
                 }
             }
@@ -190,7 +190,7 @@ namespace TopDownTacticalAI.Search
                 {
                     Vector2 desiredDir = (center - currentPos).normalized;
                     Vector2 dir = SteeringMovement.GetSteeredDirection(currentPos, desiredDir, _obstacleMask, self: _self, personalSpace: _personalSpace);
-                    _self.position = currentPos + dir * _moveSpeed * deltaTime;
+                    _self.position = SteeringMovement.MoveWithCollisionCheck(_self, dir * (_moveSpeed * deltaTime), _obstacleMask);
                     RotateTowards(dir);
                 }
             }

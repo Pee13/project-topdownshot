@@ -24,8 +24,9 @@ namespace TopDownTacticalAI.Chase
         private readonly TargetMemory _targetMemory;
         private readonly float _predictionLeadTime;
         private readonly float _flankRadius;
+        private readonly AIScoringWeights _weights;
 
-        public ChaseState(Transform self, Blackboard blackboard, TargetMemory targetMemory, float moveSpeed, LayerMask obstacleMask, float predictionLeadTime = 0.3f, float flankRadius = 3f, float personalSpace = 1.3f)
+        public ChaseState(Transform self, Blackboard blackboard, TargetMemory targetMemory, float moveSpeed, LayerMask obstacleMask, float predictionLeadTime = 0.3f, float flankRadius = 3f, float personalSpace = 1.3f, AIScoringWeights weights = null)
         {
             _self = self;
             _blackboard = blackboard;
@@ -33,6 +34,7 @@ namespace TopDownTacticalAI.Chase
             _movement = new ChaseMovement(self, moveSpeed, obstacleMask, personalSpace);
             _predictionLeadTime = predictionLeadTime;
             _flankRadius = flankRadius;
+            _weights = weights;
         }
 
         public void Enter() { }
@@ -44,7 +46,35 @@ namespace TopDownTacticalAI.Chase
             Vector2 targetPos = _blackboard.CurrentTarget.position;
             _targetMemory.Update(targetPos, deltaTime);
 
-            Vector2 predicted = TargetPrediction.Predict(targetPos, _targetMemory.LastVelocity, _predictionLeadTime);
+            // ทำนายตำแหน่งล่วงหน้าพร้อมความมั่นใจ
+            // ถ้า AI ไม่มั่นใจในการทำนาย (เป้าหมายเปลี่ยนทิศบ่อย) ให้ถ่วงน้ำหนักกลับมาที่
+            // ตำแหน่งปัจจุบันมากขึ้น แทนที่จะวิ่งไปจุดที่เดาผิด
+            Vector2 predicted;
+            float predictionConfidence;
+
+            if (_weights != null)
+            {
+                predicted = TargetPrediction.PredictWithConfidence(
+                    targetPos,
+                    _targetMemory.LastVelocity,
+                    _blackboard.DistanceToTarget,
+                    _weights.estimatedTravelSpeed,
+                    _weights.minPredictionTime,
+                    _weights.maxPredictionTime,
+                    _targetMemory.GetSmoothedDirection(),
+                    out predictionConfidence);
+
+                predicted = Vector2.Lerp(targetPos, predicted, predictionConfidence);
+            }
+            else
+            {
+                predicted = TargetPrediction.Predict(targetPos, _targetMemory.LastVelocity, _predictionLeadTime);
+                predictionConfidence = 1f;
+            }
+
+            _blackboard.PredictionConfidence = predictionConfidence;
+            _blackboard.PredictedTargetPosition = predicted;
+
             Vector2 destination = GetDestinationWithFlanking(predicted);
             _blackboard.CurrentDestination = destination;
 

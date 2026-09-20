@@ -94,7 +94,16 @@ namespace TopDownTacticalAI.DebugTools
         /// <summary>วาดเส้นตรงจากตัว AI ไปยัง Blackboard.CurrentDestination ที่ State ปัจจุบันตั้งใจจะไป</summary>
         private void UpdateDestinationLine(Color stateColor)
         {
-            Vector2 destination = _brain.GetBlackboard().CurrentDestination;
+            // กันพัง: Blackboard ถูกสร้างใน EnemyBrain.Awake() ถ้าสคริปต์นั้นถูกปิดอยู่
+            // หรือยังไม่ทันรัน Awake ค่าจะเป็น null ทำให้เกิด NullReferenceException ทุกเฟรม
+            var blackboard = _brain.GetBlackboard();
+            if (blackboard == null)
+            {
+                _destinationLine.positionCount = 0;
+                return;
+            }
+
+            Vector2 destination = blackboard.CurrentDestination;
 
             if (destination == Vector2.zero)
             {

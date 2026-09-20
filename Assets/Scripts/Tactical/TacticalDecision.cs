@@ -26,18 +26,71 @@ namespace TopDownTacticalAI.Tactical
             EnemyState currentState,
             out string reason)
         {
-            // 1) Priority สูงสุด: เห็นผู้เล่นอยู่ + มีกระสุนพุ่งเข้ามา -> Dodge
-            if (blackboard.CanSeeTarget)
+            // 1) Priority สูงสุด: เห็นผู้เล่นอยู่ + กระสุนจะโดนจริง -> Dodge
+            //    (ไม่ใช้การทอยสุ่มแล้ว — หลบเมื่อการทำนายบอกว่ากระสุนจะพุ่งโดนตัวเราจริง §17/§18)
+            //    และบาง Role เช่น Tank ไม่ dodge แบบปกติ (§29) — ใช้ตัวมันบังกระสุนแทน
+            if (blackboard.CanSeeTarget && blackboard.CanDodge)
             {
-                bool bulletIncoming = Dodge.BulletDetector.IsBulletIncoming(selfPosition, dodgeDetectRadius, bulletMask, out _, out _);
-                if (bulletIncoming && Dodge.DodgeDecision.ShouldDodge(true))
+                bool bulletIncoming = Dodge.BulletDetector.IsBulletIncoming(selfPosition, dodgeDetectRadius, bulletMask, out Vector2 bulletVel, out Vector2 bulletPos);
+                if (bulletIncoming && Dodge.DodgeDecision.ShouldDodge(true, selfPosition, bulletPos, bulletVel))
                 {
-                    reason = "เห็นผู้เล่น + มีกระสุนพุ่งเข้ามา → หลบด่วน!";
+                    reason = "เห็นผู้เล่น + ทำนายแล้วว่ากระสุนจะโดนจริง → หลบด่วน!";
                     return EnemyState.Dodge;
                 }
             }
 
-            // 2) ไม่เห็นผู้เล่นเลย
+            // 1.2) TANK: Healer ถูกคุกคาม → ออกไปบัง (§2 priority 1, §8/§9)
+            //      วางไว้ก่อนกิ่งถอย เพราะหน้าที่อันดับแรกของ Tank คือคุ้มกัน
+            //      (และ RetreatOnlyWhenCritical ทำให้ tank ถอยเฉพาะเลือดวิกฤตอยู่ดี)
+            if (blackboard.IsTankRole && blackboard.HealerThreatened)
+            {
+                reason = "Tank: Healer ถูกคุกคาม! → ออกไปบังระหว่างผู้เล่นกับ Healer (PROTECT_HEALER)";
+                return EnemyState.ProtectHealer;
+            }
+
+            // 1.3) TANK: เพื่อนกำลังหนีและถูกผู้เล่นไล่ → เข้าไปสกัด/ดึงดูด (§2 priority 2-4, §10/§21)
+            if (blackboard.IsTankRole && blackboard.RetreatingAllyUnderThreat)
+            {
+                reason = "Tank: เพื่อนกำลังหนีและถูกไล่ → เข้าไปขวาง/สกัดผู้เล่น (PEEL_ALLY)";
+                return EnemyState.PeelAlly;
+            }
+
+            // 2) เลือดน้อย → ถอยกลับไปหา Healer (§18/§19)
+            //    วางไว้หลัง Dodge เพราะถ้ากำลังจะโดนกระสุน ต้องหลบก่อนแล้วค่อยเดินถอย
+            //    และทำงานได้ทั้งตอนเห็นและไม่เห็นผู้เล่น — การถอยไม่จำเป็นต้องรู้ว่าผู้เล่นอยู่ไหน
+            //    precondition: ต้องมี Healer ที่ยังมีชีวิตอยู่ ไม่งั้นการถอยไม่ช่วยอะไร
+            //    (กันไม่ให้ AI เดินถอยหนีจนหมดแมพทั้งที่ฮีลไม่ได้แล้ว)
+            //    Tank ใช้เกณฑ์ที่เข้มขึ้น (วิกฤตเท่านั้น) ตาม RetreatOnlyWhenCritical
+            float effectiveRetreatThreshold = blackboard.RetreatOnlyWhenCritical
+                ? blackboard.CriticalRetreatHealthThreshold
+                : blackboard.RetreatHealthThreshold;
+            if (blackboard.SelfHealthPercent <= effectiveRetreatThreshold && blackboard.HealerAvailable)
+            {
+                bool inHealRange = blackboard.HealerDistance <= blackboard.HealRange;
+
+                if (inHealRange)
+                {
+                    reason = $"เลือดเหลือ {blackboard.SelfHealthPercent * 100f:F0}% และอยู่ในระยะฮีลแล้ว → อยู่กับที่รอฮีล (SEEK_HEAL)";
+                    return EnemyState.SeekHeal;
+                }
+
+                bool isCritical = blackboard.SelfHealthPercent <= blackboard.CriticalRetreatHealthThreshold;
+                reason = isCritical
+                    ? $"⚠ เลือดวิกฤต {blackboard.SelfHealthPercent * 100f:F0}%! เอาชีวิตรอดมาก่อน → ถอยหนีไปหา Healer"
+                    : $"เลือดเหลือ {blackboard.SelfHealthPercent * 100f:F0}% → ถอยกลับไปหา Healer (RETREAT)";
+                return EnemyState.Retreat;
+            }
+
+            // 2.4) Healer: ฮีลเพื่อนที่บาดเจ็บ (§4/§14)
+            //      Healer ทำงานได้ทั้งตอนเห็นและไม่เห็นผู้เล่น — การฮีลไม่ต้องรู้ว่าผู้เล่นอยู่ไหน
+            //      วางไว้ก่อนกิ่ง Patrol/Search เพื่อให้ฮีลได้แม้ไม่เห็นผู้เล่นเลย
+            if (blackboard.IsHealerRole && blackboard.WoundedAllyExists)
+            {
+                reason = "Healer: มีเพื่อนบาดเจ็บ → เข้าไปฮีล (HEAL_ALLY)";
+                return EnemyState.HealAlly;
+            }
+
+            // 2.5) ไม่เห็นผู้เล่นเลย
             if (!blackboard.CanSeeTarget && !blackboard.HasMemory)
             {
                 reason = "ไม่เห็นผู้เล่น และไม่มีความจำเก่า → เดินตรวจตราตามปกติ";
@@ -46,6 +99,13 @@ namespace TopDownTacticalAI.Tactical
 
             if (!blackboard.CanSeeTarget && blackboard.HasMemory)
             {
+                // Healer ไม่ออกค้นหาเอง — หน้าที่คืออยู่ให้ปลอดภัยและรอฮีลเพื่อน (§4)
+                if (blackboard.IsHealerRole)
+                {
+                    reason = "Healer: เสียสายตาผู้เล่น → ไม่ออกค้นหาเอง อยู่ดูแลเพื่อน";
+                    return blackboard.WoundedAllyExists ? EnemyState.HealAlly : EnemyState.Patrol;
+                }
+
                 reason = $"เพิ่งเห็นผู้เล่นหายไป (จำได้อีก {blackboard.LastSeen.TimeSeen:F0}s ที่แล้ว) → ไปดูจุดล่าสุด/ค้นหา";
                 return EnemyState.Search;
             }
@@ -82,8 +142,8 @@ namespace TopDownTacticalAI.Tactical
             }
 
             // 3) เห็นผู้เล่นอยู่: ประเมินความเสี่ยง
-            float risk = RiskEvaluation.EvaluateRisk(blackboard, blackboard.DistanceToTarget, dangerRange);
-
+            // หมายเหตุ: ค่า ThreatLevel ถูกคำนวณไว้แล้วใน EnemyBrain หลังขั้นรับรู้ของทุกเฟรม
+            // ไม่คำนวณซ้ำที่นี่ เพื่อให้มีแหล่งความจริงเดียว (Single Source of Truth)
             bool shouldSeekCover = CoverDecision.ShouldSeekCover(blackboard, blackboard.DistanceToTarget, manaAdjustedDangerRange);
             if (shouldSeekCover)
             {
@@ -109,11 +169,22 @@ namespace TopDownTacticalAI.Tactical
 
             if (effectiveTooFar)
             {
+                // Healer ไม่ไล่ตามผู้เล่น (§4 — attack only when safe, ไม่ออกบุกเดี่ยว)
+                // กลับไปทำหน้าที่ฮีล หรือเฝ้าตำแหน่งแทน
+                if (blackboard.IsHealerRole)
+                {
+                    reason = "Healer: ผู้เล่นอยู่ไกล → ไม่ไล่ตาม กลับไปดูแลเพื่อน";
+                    return blackboard.WoundedAllyExists ? EnemyState.HealAlly : EnemyState.Patrol;
+                }
+
                 reason = $"เห็นผู้เล่นแต่ระยะไกลเกินไป ({blackboard.DistanceToTarget:F1}m) → วิ่งเข้าไปไล่ตาม";
                 return EnemyState.Chase;
             }
 
             // 5) กรณีปกติ: เข้าสู่ Combat
+            //    Healer เข้า state Combat ได้ — มันจะ "รักษาระยะ" ด้วยการถอยเมื่อผู้เล่นใกล้เกิน
+            //    PreferredMinRange ตามที่ preset ตั้งไว้ (และยิงไม่ออกเพราะไม่มีกระสุนให้)
+            //    ซึ่งตรงกับ "attack only when safe / keep distance" ของบทบาท healer (§4/§29)
             reason = $"เห็นผู้เล่นในระยะยิง ({blackboard.DistanceToTarget:F1}m) HP/กระสุนพร้อม → เข้าปะทะ";
             return EnemyState.Combat;
         }

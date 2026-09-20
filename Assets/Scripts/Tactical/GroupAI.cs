@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using TopDownTacticalAI.Core;
+using TopDownTacticalAI.Player;
 
 namespace TopDownTacticalAI.Tactical
 {
@@ -17,12 +18,25 @@ namespace TopDownTacticalAI.Tactical
 
         private void Awake()
         {
+            // Singleton ปกติ: ถ้ามีตัวอื่นอยู่แล้วให้ทำลายตัวนี้ทิ้ง
             if (Instance != null && Instance != this)
             {
                 Destroy(gameObject);
                 return;
             }
             Instance = this;
+
+            // เคลียร์รายชื่อรอบก่อน (ถ้ามี) ให้ตรงกับฉากปัจจุบัน
+            _activeEnemies.Clear();
+        }
+
+        private void OnDestroy()
+        {
+            // สำคัญ: ต้องเคลียร์ static ตอนถูกทำลาย (ตอนออกจาก Play Mode / ปิดฉาก)
+            // ไม่งั้นรอบถัดไป GroupAI.Awake จะเห็น Instance ค้างจากรอบก่อน แล้วคิดว่า
+            // "มีตัวอื่นอยู่แล้ว" → ทำลายตัวเองทิ้ง → ไม่มีใครลงทะเบียน → ระบบฮีล/ทีมมองไม่เห็นใครเลย
+            // (บั๊กที่เจอจริง: Tank กับ Sup ไม่ถูกลงทะเบียน เหลือแค่ Flanker)
+            if (Instance == this) Instance = null;
         }
 
         public void Register(Transform enemy)
@@ -39,6 +53,44 @@ namespace TopDownTacticalAI.Tactical
         public int GetIndexOf(Transform enemy) => _activeEnemies.IndexOf(enemy);
 
         public int TotalActive => _activeEnemies.Count;
+
+        /// <summary>
+        /// รายชื่อเพื่อนร่วมทีมทั้งหมดที่ยัง Active อยู่ (§20 — ทีมบัส)
+        /// ใช้โดย RetreatState (หา healer), HealAllyState (เลือกเป้าฮีล) ฯลฯ
+        /// คืนเป็น read-only เพื่อกันภายนอกแก้รายการภายใน
+        /// </summary>
+        public IReadOnlyList<Transform> ActiveEnemies => _activeEnemies;
+
+        /// <summary>
+        /// หา Healer ที่ยังมีชีวิตอยู่ และใกล้ที่สุดจากจุด origin
+        /// ใช้โดยตัวที่เลือดน้อยตอนถอยกลับไปหา healer (§18)
+        /// </summary>
+        /// <param name="origin">ตำแหน่งตัวเอง</param>
+        /// <param name="maxRange">ระยะค้นหาสูงสุด (ใส่ float.MaxValue เพื่อค้นทั้งแมพ)</param>
+        /// <returns>Transform ของ healer ที่ใกล้ที่สุด หรือ null ถ้าไม่มี healer ที่ยังมีชีวิต</returns>
+        public Transform FindNearestHealer(Vector2 origin, float maxRange)
+        {
+            Transform best = null;
+            float bestDistance = maxRange;
+
+            foreach (var enemy in _activeEnemies)
+            {
+                if (enemy == null) continue;
+                if (!enemy.TryGetComponent(out EnemyBrain brain)) continue;
+                if (brain.Role != EnemyRole.Support) continue;   // เฉพาะบทบาท healer
+
+                if (!enemy.TryGetComponent(out Health health)) continue;
+                if (health.IsDead || health.CurrentHP <= 0f) continue; // healer ตายแล้วฮีลไม่ได้
+
+                float distance = Vector2.Distance(origin, enemy.position);
+                if (distance > bestDistance) continue;
+
+                bestDistance = distance;
+                best = enemy;
+            }
+
+            return best;
+        }
 
         public int CountNearby(Vector2 origin, float radius, Transform exclude)
         {

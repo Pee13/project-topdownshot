@@ -1,6 +1,7 @@
 using UnityEngine;
 using TopDownTacticalAI.Core;
 using TopDownTacticalAI.Tactical;
+using TopDownTacticalAI.Utilities;
 
 namespace TopDownTacticalAI.Combat
 {
@@ -75,7 +76,9 @@ namespace TopDownTacticalAI.Combat
                         retreatDir = blended;
                 }
 
-                _self.position = (Vector2)_self.position + retreatDir * _retreatSpeed * deltaTime;
+                // ถอยแบบ "เช็คก่อนก้าว" — กันถอยหลังมุดกำแพง (ระบบกลางเดียวกับ state อื่น)
+                _self.position = SteeringMovement.MoveWithCollisionCheck(
+                    _self, retreatDir * (_retreatSpeed * deltaTime), _obstacleMask);
             }
 
             if (AttackDecision.ShouldFire(_blackboard, _self.position, targetPos, _obstacleMask, _maxRange, aimed))
