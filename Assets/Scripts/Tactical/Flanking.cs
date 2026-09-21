@@ -2,25 +2,47 @@ using UnityEngine;
 
 namespace TopDownTacticalAI.Tactical
 {
-    /// <summary>
-    /// คำนวณตำแหน่งอ้อมข้างเป้าหมาย เพื่อใช้ตอน AI หลายตัวร่วมมือกันล้อมผู้เล่น (GroupAI)
-    /// </summary>
     public static class Flanking
     {
-        /// <param name="targetPosition">ตำแหน่งผู้เล่น</param>
-        /// <param name="allyIndex">ลำดับของ AI ตัวนี้ในกลุ่ม (0, 1, 2, ...)</param>
-        /// <param name="totalAllies">จำนวน AI ทั้งหมดที่กำลังล้อม</param>
-        /// <param name="flankRadius">ระยะห่างจากเป้าหมายที่จะไปยืน</param>
-        public static Vector2 GetFlankPosition(Vector2 targetPosition, int allyIndex, int totalAllies, float flankRadius)
+        /// <summary>
+        /// คำนวณตำแหน่งโอบล้อม (Flanking) ตามลำดับคิวของตัวละครใน GroupAI
+        /// </summary>
+        /// <param name="targetPos">ตำแหน่งเป้าหมาย (ผู้เล่น)</param>
+        /// <param name="chaserIndex">ลำดับของ AI ตัวนี้ในกลุ่ม (0, 1, 2...)</param>
+        /// <param name="totalChasers">จำนวน AI ทั้งหมดที่กำลังไล่ล่า</param>
+        /// <param name="flankRadius">ระยะห่างในการตีวงอ้อม</param>
+        public static Vector2 GetFlankPosition(Vector2 targetPos, int chaserIndex, int totalChasers, float flankRadius)
         {
-            if (totalAllies <= 0) totalAllies = 1;
+            // ถ้ามีตัวเดียว หรือเป็นตัวนำทัพ (index 0) ให้เดินตรงหาผู้เล่น
+            if (totalChasers <= 1 || chaserIndex <= 0)
+                return targetPos;
 
-            float angleStep = 360f / totalAllies;
-            float angle = angleStep * allyIndex;
-            float rad = angle * Mathf.Deg2Rad;
+            // กระจายมุมโอบซ้าย-ขวา: ตัวคี่ฉีกออกซ้าย (+องศา) ตัวคู่ฉีกออกขวา (-องศา)
+            int pairIndex = (chaserIndex + 1) / 2;
+            float sign = (chaserIndex % 2 == 1) ? 1f : -1f;
+            float angleDegrees = sign * (50f + (pairIndex - 1) * 35f);
 
-            Vector2 offset = new Vector2(Mathf.Cos(rad), Mathf.Sin(rad)) * flankRadius;
-            return targetPosition + offset;
+            // คำนวณพิกัดจุดโอบรอบตัวผู้เล่น
+            float angleRad = angleDegrees * Mathf.Deg2Rad;
+            Vector2 offset = new Vector2(Mathf.Sin(angleRad), Mathf.Cos(angleRad)) * flankRadius;
+
+            return targetPos + offset;
+        }
+
+        /// <summary>
+        /// คำนวณจุดโอบด้านข้างหรือด้านหลังแบบอ้างอิงทิศทางผู้เล่น
+        /// </summary>
+        public static Vector2 CalculateFlankPosition(Vector2 flankerPos, Vector2 playerPos, Vector2 playerForward, float flankRadius)
+        {
+            Vector2 toFlanker = (flankerPos - playerPos).normalized;
+            Vector2 playerRight = new Vector2(playerForward.y, -playerForward.x);
+            bool isOnRightSide = Vector2.Dot(toFlanker, playerRight) > 0f;
+            float flankAngle = isOnRightSide ? 115f : -115f;
+
+            Quaternion rot = Quaternion.Euler(0, 0, flankAngle);
+            Vector2 flankDirection = rot * (-playerForward);
+
+            return playerPos + (flankDirection.normalized * flankRadius);
         }
     }
 }

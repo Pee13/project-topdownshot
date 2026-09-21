@@ -2,44 +2,59 @@ using UnityEngine;
 
 namespace TopDownTacticalAI.CameraSystem
 {
-    /// <summary>
-    /// กล้องตามผู้เล่นแบบนุ่มนวล (Smooth Follow) สำหรับเกม Top-down 2D
-    /// วิธีใช้: แปะสคริปต์นี้ไว้ที่ Main Camera แล้วลาก Transform ผู้เล่นมาใส่ช่อง Target
-    /// </summary>
     public class CameraFollow : MonoBehaviour
     {
-        [Header("Target")]
-        [Tooltip("Transform ที่ต้องการให้กล้องตาม (ปกติคือผู้เล่น)")]
-        public Transform Target;
+        [Header("Target Settings")]
+        [Tooltip("ลาก Player 1 มาใส่ช่องนี้")]
+        public Transform target;
 
-        [Header("Follow Settings")]
-        [Tooltip("ยิ่งน้อยยิ่งตามติดเร็ว ยิ่งมากยิ่งตามนุ่มนวล/หน่วงกว่า")]
-        public float SmoothTime = 0.15f;
+        [Header("Smooth Settings")]
+        [Tooltip("ยิ่งค่าน้อยยิ่งตามเร็ว แนะนำ 0.15 - 0.25")]
+        [Range(0.05f, 0.5f)]
+        public float smoothTime = 0.2f;
 
-        [Tooltip("ระยะออฟเซ็ตจากตัวผู้เล่น (ปกติ Z ควรเป็นค่าลบเพื่อให้กล้องอยู่หลังฉาก)")]
-        public Vector3 Offset = new Vector3(0f, 0f, -10f);
+        [Header("Offset")]
+        [Tooltip("ระยะห่างของกล้อง (แกน Z ต้องเป็น -10 เสมอ)")]
+        public Vector3 offset = new Vector3(0f, 0f, -10f);
 
-        [Header("Boundary (ทางเลือก)")]
-        [Tooltip("ถ้าต้องการจำกัดขอบเขตกล้องไม่ให้ออกนอกฉาก ให้ติ๊กเปิดแล้วตั้งค่าขอบเขตด้านล่าง")]
-        public bool UseBounds = false;
-        public Vector2 MinBounds;
-        public Vector2 MaxBounds;
+        // ตัวแปรความเร็วภายใน ห้ามสร้างใหม่ใน LateUpdate
+        private Vector3 _currentVelocity = Vector3.zero;
 
-        private Vector3 _velocity = Vector3.zero;
+        private void Start()
+        {
+            // Fail-safe ช่วยหาผู้เล่นให้อัตโนมัติเผื่อลืมลากใส่
+            if (target == null)
+            {
+                GameObject player = GameObject.Find("Player 1");
+                if (player == null) player = GameObject.FindWithTag("Player");
+                if (player != null) target = player.transform;
+            }
+
+            // จัดตำแหน่งเริ่มต้นให้ตรงกับเป้าหมายทันทีตอนเปิดเกม ไม่ต้องให้ลอยวิ่งมาจากจุดไกล
+            if (target != null)
+            {
+                transform.position = new Vector3(target.position.x + offset.x, target.position.y + offset.y, offset.z);
+            }
+        }
 
         private void LateUpdate()
         {
-            if (Target == null) return;
+            if (target == null) return;
 
-            Vector3 desiredPosition = Target.position + Offset;
+            // 1. คำนวณพิกัดเป้าหมาย (ล็อก Z ไว้ที่ -10 เสมอสำหรับเกม 2D)
+            Vector3 targetPosition = new Vector3(
+                target.position.x + offset.x, 
+                target.position.y + offset.y, 
+                offset.z
+            );
 
-            if (UseBounds)
-            {
-                desiredPosition.x = Mathf.Clamp(desiredPosition.x, MinBounds.x, MaxBounds.x);
-                desiredPosition.y = Mathf.Clamp(desiredPosition.y, MinBounds.y, MaxBounds.y);
-            }
-
-            transform.position = Vector3.SmoothDamp(transform.position, desiredPosition, ref _velocity, SmoothTime);
+            // 2. เคลื่อนที่ด้วยความหน่วงนุ่มนวลระดับเฟรม
+            transform.position = Vector3.SmoothDamp(
+                transform.position, 
+                targetPosition, 
+                ref _currentVelocity, 
+                smoothTime
+            );
         }
     }
 }

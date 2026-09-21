@@ -50,7 +50,9 @@ namespace TopDownTacticalAI.Chase
 
             _movement.MoveTowards(destination, deltaTime);
         }
+        
 
+        
         /// <summary>
         /// ถ้ามีเพื่อนไล่ผู้เล่นอยู่ด้วยหลายตัว ให้แบ่งบทบาท: ตัวหลักไล่ตรง ตัวอื่นอ้อมไปดักรอบๆ แทน
         /// </summary>
