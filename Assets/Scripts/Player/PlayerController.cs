@@ -54,6 +54,7 @@ namespace TopDownTacticalAI.Player
         public bool IsDashing { get; private set; }
 
         private Rigidbody2D _rb;
+        private Animator _anim; // [เพิ่ม] คอมโพเนนต์แอนิเมชัน
         private Vector2 _input;
         private Vector2 _lastFacingDirection = Vector2.up;
         private bool _isRunning;
@@ -66,6 +67,7 @@ namespace TopDownTacticalAI.Player
         private void Awake()
         {
             _rb = GetComponent<Rigidbody2D>();
+            _anim = GetComponent<Animator>(); // [เพิ่ม] เชื่อม Animator อัตโนมัติ
 
             // ล็อคการหมุนของ Physics ไว้ (เราหมุนผู้เล่นเองผ่าน PlayerShoot ตามเมาส์อยู่แล้ว
             // ถ้าไม่ล็อค พอชนกำแพง/สิ่งกีดขวางเอียงๆ แรงกระแทกจาก Physics จะดันหมุนแข่งกับโค้ด ทำให้ดูเหมือนควงสวิง)
@@ -97,6 +99,14 @@ namespace TopDownTacticalAI.Player
                 _dashRequested = true;
 
             HandleFootstepNoise();
+
+            // [เพิ่ม] ส่งค่าไปยัง Animator: ถ้ากดเดินหรือกำลัง Dash จะสั่งให้พ่นไฟทันที
+          // ใหม่: ไฟพ่นเฉพาะตอน "กดเดิน + Shift วิ่ง" หรือตอน "Dash"
+            if (_anim != null)
+            {
+                bool isBoosting = (_input.sqrMagnitude > 0.01f && _isRunning) || IsDashing;
+                _anim.SetBool("isMoving", isBoosting);
+            }  
         }
 
         private void FixedUpdate()
