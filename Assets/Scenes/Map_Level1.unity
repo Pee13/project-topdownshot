@@ -468,7 +468,7 @@ SpriteRenderer:
   m_Size: {x: 1, y: 1}
   m_AdaptiveModeThreshold: 0.5
   m_SpriteTileMode: 0
-  m_WasSpriteAssigned: 1
+  m_WasSpriteAssigned: 0
   m_SpriteSortPoint: 0
 --- !u!1 &83048281
 GameObject:
@@ -1156,9 +1156,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 30753a0e97ca56b4582c9665b7f7e664, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::TopDownTacticalAI.CameraSystem.CameraFollow
-  target: {fileID: 0}
-  smoothTime: 0.2
-  offset: {x: 0, y: 0, z: -10}
+  Target: {fileID: 0}
+  AutoFindPlayer: 1
+  SmoothTime: 0.15
+  Offset: {x: 0, y: 0, z: -10}
+  SnapOnStart: 1
+  TeleportSnapDistance: 20
+  LookAheadDistance: 0
+  LookAheadSmoothing: 2
+  UseBounds: 0
+  MinBounds: {x: 0, y: 0}
+  MaxBounds: {x: 0, y: 0}
 --- !u!4 &243463721
 Transform:
   m_ObjectHideFlags: 0
@@ -1408,7 +1416,10 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 3621832598862910006, guid: 90f8bff3a0d335140b39a7a3606601ed, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 891390415}
   m_SourcePrefab: {fileID: 100100000, guid: 90f8bff3a0d335140b39a7a3606601ed, type: 3}
 --- !u!1 &328390420
 GameObject:
@@ -2150,6 +2161,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::TopDownTacticalAI.DebugTools.AIDebugDisplay
   ShowDebugHUD: 1
   CompactMode: 0
+  ShowScoringMetrics: 1
   ScreenOffset: {x: 0, y: -60}
   FontSize: 12
 --- !u!114 &689152261
@@ -2207,12 +2219,114 @@ MonoBehaviour:
   SearchPursuitOvershoot: 50
   MaxAlertDuration: 99
   AlertShoutRadius: 100
+  AlertWholeTeam: 1
   PlayerManaRef: {fileID: 901147156}
   SafetySearchRadius: 6
   InfluenceCellSize: 0.75
   AttackUtilityBonus: 30
+  RetreatHealthThreshold: 0.3
+  CriticalRetreatHealthThreshold: 0.15
+  HealWorthThreshold: 0.8
+  TankHealThreshold: 0.8
+  CriticalAllyHealthThreshold: 0.25
+  HealRange: 25
+  HealPerSecond: 20
+  RetreatSpeed: 3
+  ProtectionDistance: 4
+  PositionSearchRadius: 6
+  HealerThreatRange: 20
+  PeelAllyHpThreshold: 0.4
+  HealBeam: {fileID: 0}
+  ScoringWeights:
+    healthNeed: 0.35
+    criticalBonus: 0.2
+    roleImportance: 0.15
+    threatImportance: 0.1
+    visibility: 0.1
+    accessibility: 0.1
+    healthPriorityCurve:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
+        time: 0
+        value: 1
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 0.2
+        value: 0.9
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 0.4
+        value: 0.65
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 0.6
+        value: 0.3
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 0.8
+        value: 0.1
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 1
+        value: 0
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+    criticalThreshold: 0.35
+    positionCover: 0.2
+    positionVisibility: 0.2
+    positionDistance: 0.15
+    positionThreat: 0.15
+    positionEscape: 0.15
+    positionRole: 0.1
+    positionTeam: 0.05
+    switchThreshold: 0.1
+    threatSmoothingSpeed: 3
+    criticalThreatOverride: 0.85
+    criticalHealthOverride: 0.15
+    minViableScore: 0.25
+    minPredictionTime: 0.1
+    maxPredictionTime: 2
+    estimatedTravelSpeed: 4
+    visionInterval: 0
+    threatInterval: 0
+    teamInterval: 0
   SuspicionBuildTime: 0.5
   SuspicionDecayTime: 2
+  ObstacleSkinWidth: 0.03
+  MaxObstaclePushPerFrame: 0.5
 --- !u!212 &689152262
 SpriteRenderer:
   serializedVersion: 2
@@ -3315,6 +3429,34 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 841153820}
   m_CullTransparentMesh: 1
+--- !u!1 &891390410 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 3621832598862910006, guid: 90f8bff3a0d335140b39a7a3606601ed, type: 3}
+  m_PrefabInstance: {fileID: 321683321}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &891390415
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 891390410}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 30753a0e97ca56b4582c9665b7f7e664, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TopDownTacticalAI.CameraSystem.CameraFollow
+  Target: {fileID: 281270579}
+  AutoFindPlayer: 1
+  SmoothTime: 0.12
+  Offset: {x: 0, y: 0, z: -10}
+  SnapOnStart: 1
+  TeleportSnapDistance: 20
+  LookAheadDistance: 0
+  LookAheadSmoothing: 2
+  UseBounds: 0
+  MinBounds: {x: 0, y: 0}
+  MaxBounds: {x: 0, y: 0}
 --- !u!1001 &894203346
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -3690,6 +3832,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::TopDownTacticalAI.DebugTools.AIDebugDisplay
   ShowDebugHUD: 1
   CompactMode: 0
+  ShowScoringMetrics: 1
   ScreenOffset: {x: 0, y: -60}
   FontSize: 30
 --- !u!114 &917848779
@@ -3747,12 +3890,114 @@ MonoBehaviour:
   SearchPursuitOvershoot: 50
   MaxAlertDuration: 99
   AlertShoutRadius: 100
+  AlertWholeTeam: 1
   PlayerManaRef: {fileID: 0}
   SafetySearchRadius: 6
   InfluenceCellSize: 0.75
   AttackUtilityBonus: 30
+  RetreatHealthThreshold: 0.3
+  CriticalRetreatHealthThreshold: 0.15
+  HealWorthThreshold: 0.8
+  TankHealThreshold: 0.8
+  CriticalAllyHealthThreshold: 0.25
+  HealRange: 25
+  HealPerSecond: 20
+  RetreatSpeed: 3
+  ProtectionDistance: 4
+  PositionSearchRadius: 6
+  HealerThreatRange: 20
+  PeelAllyHpThreshold: 0.4
+  HealBeam: {fileID: 0}
+  ScoringWeights:
+    healthNeed: 0.35
+    criticalBonus: 0.2
+    roleImportance: 0.15
+    threatImportance: 0.1
+    visibility: 0.1
+    accessibility: 0.1
+    healthPriorityCurve:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
+        time: 0
+        value: 1
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 0.2
+        value: 0.9
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 0.4
+        value: 0.65
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 0.6
+        value: 0.3
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 0.8
+        value: 0.1
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 1
+        value: 0
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+    criticalThreshold: 0.35
+    positionCover: 0.2
+    positionVisibility: 0.2
+    positionDistance: 0.15
+    positionThreat: 0.15
+    positionEscape: 0.15
+    positionRole: 0.1
+    positionTeam: 0.05
+    switchThreshold: 0.1
+    threatSmoothingSpeed: 3
+    criticalThreatOverride: 0.85
+    criticalHealthOverride: 0.15
+    minViableScore: 0.25
+    minPredictionTime: 0.1
+    maxPredictionTime: 2
+    estimatedTravelSpeed: 4
+    visionInterval: 0
+    threatInterval: 0
+    teamInterval: 0
   SuspicionBuildTime: 1.2
   SuspicionDecayTime: 2
+  ObstacleSkinWidth: 0.03
+  MaxObstaclePushPerFrame: 0.5
 --- !u!212 &917848780
 SpriteRenderer:
   serializedVersion: 2
@@ -3959,6 +4204,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: fd3f1ab2c31f4704bb7dc79eef988c8d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::TopDownTacticalAI.Enemy.SupportAI
+  ControlMovement: 1
   FollowDistance: 20
   FleeDistance: 60
   MoveSpeed: 30
@@ -7593,12 +7839,114 @@ MonoBehaviour:
   SearchPursuitOvershoot: 50
   MaxAlertDuration: 99
   AlertShoutRadius: 100
+  AlertWholeTeam: 1
   PlayerManaRef: {fileID: 0}
   SafetySearchRadius: 6
   InfluenceCellSize: 0.75
   AttackUtilityBonus: 30
+  RetreatHealthThreshold: 0.3
+  CriticalRetreatHealthThreshold: 0.15
+  HealWorthThreshold: 0.8
+  TankHealThreshold: 0.8
+  CriticalAllyHealthThreshold: 0.25
+  HealRange: 25
+  HealPerSecond: 20
+  RetreatSpeed: 3
+  ProtectionDistance: 4
+  PositionSearchRadius: 6
+  HealerThreatRange: 20
+  PeelAllyHpThreshold: 0.4
+  HealBeam: {fileID: 0}
+  ScoringWeights:
+    healthNeed: 0.35
+    criticalBonus: 0.2
+    roleImportance: 0.15
+    threatImportance: 0.1
+    visibility: 0.1
+    accessibility: 0.1
+    healthPriorityCurve:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
+        time: 0
+        value: 1
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 0.2
+        value: 0.9
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 0.4
+        value: 0.65
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 0.6
+        value: 0.3
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 0.8
+        value: 0.1
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 1
+        value: 0
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+    criticalThreshold: 0.35
+    positionCover: 0.2
+    positionVisibility: 0.2
+    positionDistance: 0.15
+    positionThreat: 0.15
+    positionEscape: 0.15
+    positionRole: 0.1
+    positionTeam: 0.05
+    switchThreshold: 0.1
+    threatSmoothingSpeed: 3
+    criticalThreatOverride: 0.85
+    criticalHealthOverride: 0.15
+    minViableScore: 0.25
+    minPredictionTime: 0.1
+    maxPredictionTime: 2
+    estimatedTravelSpeed: 4
+    visionInterval: 0
+    threatInterval: 0
+    teamInterval: 0
   SuspicionBuildTime: 1.2
   SuspicionDecayTime: 2
+  ObstacleSkinWidth: 0.03
+  MaxObstaclePushPerFrame: 0.5
 --- !u!212 &2022521681
 SpriteRenderer:
   serializedVersion: 2
@@ -7707,6 +8055,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::TopDownTacticalAI.DebugTools.AIDebugDisplay
   ShowDebugHUD: 1
   CompactMode: 0
+  ShowScoringMetrics: 1
   ScreenOffset: {x: 0, y: -60}
   FontSize: 12
 --- !u!114 &2022521685
@@ -7918,9 +8267,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 30753a0e97ca56b4582c9665b7f7e664, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::TopDownTacticalAI.CameraSystem.CameraFollow
-  target: {fileID: 0}
-  smoothTime: 0.2
-  offset: {x: 0, y: 0, z: -10}
+  Target: {fileID: 0}
+  AutoFindPlayer: 1
+  SmoothTime: 0.15
+  Offset: {x: 0, y: 0, z: -10}
+  SnapOnStart: 1
+  TeleportSnapDistance: 20
+  LookAheadDistance: 0
+  LookAheadSmoothing: 2
+  UseBounds: 0
+  MinBounds: {x: 0, y: 0}
+  MaxBounds: {x: 0, y: 0}
 --- !u!4 &2036224568
 Transform:
   m_ObjectHideFlags: 0
