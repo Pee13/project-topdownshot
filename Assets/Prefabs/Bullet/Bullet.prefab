@@ -84,12 +84,12 @@ SpriteRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 50
   m_MaskInteraction: 0
-  m_Sprite: {fileID: -802075329198069470, guid: a67fe769dd77da146a92f315a60b56c2, type: 3}
+  m_Sprite: {fileID: 1796299583381987208, guid: 1a9674eed7a528140b716c01ed12b725, type: 3}
   m_Color: {r: 0.990566, g: 0.990566, b: 0.990566, a: 1}
   m_FlipX: 0
   m_FlipY: 0
   m_DrawMode: 0
-  m_Size: {x: 1, y: 2}
+  m_Size: {x: 0.91, y: 0.55}
   m_AdaptiveModeThreshold: 0.5
   m_SpriteTileMode: 0
   m_WasSpriteAssigned: 1
@@ -106,6 +106,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c5639f75897629741a13b297833d3958, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::TopDownTacticalAI.Player.Bullet
+  IsEnemyBullet: 0
   Speed: 150
   Damage: 50
   LifeTime: 3

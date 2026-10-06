@@ -4,6 +4,7 @@ using TopDownTacticalAI.Tactical;
 namespace TopDownTacticalAI.Player
 {
     public class PlayerShoot : MonoBehaviour
+    
     {
         [Header("Bullet Setup")]
         public GameObject BulletPrefab;
@@ -21,11 +22,13 @@ namespace TopDownTacticalAI.Player
         private Camera _cam;
         private float _cooldown;
         private PlayerMana _mana;
+        private Animator _anim; // [เพิ่ม] คอมโพเนนต์แอนิเมชัน
 
         private void Awake()
         {
             _cam = Camera.main;
             _mana = GetComponent<PlayerMana>();
+            _anim = GetComponent<Animator>();
         }
 
         private void Update()
@@ -66,6 +69,7 @@ namespace TopDownTacticalAI.Player
         }
 
         private void Shoot()
+        
         {
             if (BulletPrefab == null || MuzzlePoint == null) return;
 
@@ -79,6 +83,15 @@ namespace TopDownTacticalAI.Player
 
             _mana?.ConsumeForShot();
             GroupAI.Instance?.EmitNoise(transform.position, GunshotNoiseRadius);
+            
+            // --- เติมคำสั่งยิงตรงนี้ ---
+            if (_anim != null)
+            {
+                _anim.SetTrigger("Shoot");
+            }
+        
         }
+
+      
     }
 }
