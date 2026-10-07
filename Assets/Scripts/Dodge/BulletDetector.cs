@@ -8,12 +8,25 @@ namespace TopDownTacticalAI.Dodge
     /// </summary>
     public static class BulletDetector
     {
+        // Buffer กลาง (ไม่ allocate ใหม่ทุกเฟรม) — เกมโค้ดฝั่งเดียว (single-threaded) ใช้แล้วจบในเฟรมนั้น
+        // แทนการเรียก OverlapCircleAll ที่คืน array ใหม่ทุกครั้ง (ค่า GC รั่วทุกเฟรม × ทุกตัวที่เช็ค)
+        private static readonly Collider2D[] s_hits = new Collider2D[16];
+
         public static bool IsBulletIncoming(Vector2 origin, float detectRadius, LayerMask bulletMask, out Vector2 bulletVelocity, out Vector2 bulletPosition)
         {
-            Collider2D[] hits = Physics2D.OverlapCircleAll(origin, detectRadius, bulletMask);
-
-            foreach (var hit in hits)
+            var filter = new ContactFilter2D
             {
+                useLayerMask = true,
+                layerMask = bulletMask,
+                useTriggers = true // กระสุนเป็น trigger collider (ดู Bullet.cs)
+            };
+            int count = Physics2D.OverlapCircle(origin, detectRadius, filter, s_hits);
+
+            for (int i = 0; i < count; i++)
+            {
+                Collider2D hit = s_hits[i];
+                if (hit == null) continue;
+
                 if (hit.TryGetComponent(out Rigidbody2D rb))
                 {
                     Vector2 toSelf = origin - (Vector2)hit.transform.position;

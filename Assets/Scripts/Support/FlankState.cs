@@ -40,6 +40,7 @@ namespace TopDownTacticalAI.Support
         private float _scoreCooldown;
         private readonly float _scoreInterval = 0.4f; // §27 tactical update
         private readonly ReloadController _reload;    // ไม่งั้นยิง 12 นัดแล้วรีโหลดไม่ได้อีกเลย
+        private readonly float _personalSpace;        // ระยะเว้นจากเพื่อน (จาก preset — เดิม hardcoded 1.2 ไม่ตรงค่าที่ Role ตั้ง)
 
         public FlankState(
             Transform self,
@@ -50,7 +51,8 @@ namespace TopDownTacticalAI.Support
             LayerMask obstacleMask,
             ShootController shoot = null,
             float maxFireRange = 6f,
-            ReloadController reload = null)
+            ReloadController reload = null,
+            float personalSpace = 1.3f)
         {
             _self = self;
             _blackboard = blackboard;
@@ -61,6 +63,7 @@ namespace TopDownTacticalAI.Support
             _shoot = shoot;
             _maxFireRange = maxFireRange;
             _reload = reload;
+            _personalSpace = personalSpace;
             _currentStation = self != null ? (Vector2)self.position : Vector2.zero;
         }
 
@@ -136,8 +139,9 @@ namespace TopDownTacticalAI.Support
             // ── เดิน (แยกจากการหันหน้า — §25) ──
             if (moveDirection.sqrMagnitude > 0.0001f)
             {
+                // personalSpace จาก preset (ไม่ใช่ hardcoded) — SteeringMovement ใส่แรงผลักแยกจากเพื่อนให้เอง
                 Vector2 steered = SteeringMovement.GetSteeredDirection(
-                    selfPos, moveDirection.normalized, _obstacleMask, self: _self, personalSpace: 1.2f);
+                    selfPos, moveDirection.normalized, _obstacleMask, self: _self, personalSpace: _personalSpace);
 
                 if (steered.sqrMagnitude > 0.0001f)
                 {

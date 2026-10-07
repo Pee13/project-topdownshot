@@ -23,13 +23,16 @@ namespace TopDownTacticalAI.Patrol
             _timer = 0f;
         }
 
-        /// <returns>มุมหมุนที่ควรนำไปใช้กับตัวศัตรู (องศา, แกว่งซ้าย-ขวา)</returns>
+        /// <returns>มุมหมุนที่ควรนำไปใช้กับตัวศัตรู (องศา — กวาดรอบเดียวเต็ม 360° ตลอดช่วงหยุดพัก)</returns>
         public float Tick(float deltaTime)
         {
             if (!IsLooking) return 0f;
 
             _timer += deltaTime;
-            _swayAngle = Mathf.Sin(_timer * 3f) * 45f;
+
+            // กวาดรอบเดียวเต็ม 360° (เดิมแกว่งแค่ ±45° = ไม่เคยเห็นด้านหลัง/ด้านล่าง)
+            float t = Mathf.Clamp01(_timer / Mathf.Max(0.01f, _lookDuration));
+            _swayAngle = t * 360f;
 
             if (_timer >= _lookDuration)
                 IsLooking = false;

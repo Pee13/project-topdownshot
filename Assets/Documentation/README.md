@@ -17,9 +17,10 @@ Assets/Scripts
 ├── Core        -> EnemyBrain, StateMachine, Blackboard, IAIState, EnemyState
 ├── Vision      -> VisionSensor, FieldOfView, RaycastDetector, TargetDetector, VisionDebugger
 ├── Memory      -> EnemyMemory, LastSeenData, TargetMemory, MemoryTimer
-├── Patrol      -> PatrolState, WaypointPatrol, RandomPatrol, IdleLookAround
-├── Chase       -> ChaseState, ChaseMovement, TargetPrediction, PathFollowing
+├── Patrol      -> PatrolState, WaypointPatrol, CoveragePatrol, IdleLookAround
+├── Chase       -> ChaseState, TargetPrediction, Flanking
 ├── Search      -> SearchState, SearchPattern, Investigation, ReturnPatrol
+├── Navigation  -> AgentPathMover, NavMesh2DUtility, NavMeshTestAgent
 ├── Combat      -> CombatState, AimController, ShootController, ReloadController, AttackDecision
 ├── Cover       -> CoverState, CoverScanner, CoverPoint, CoverDecision, PeekSystem, RetreatSystem
 ├── Dodge       -> DodgeState, BulletDetector, DodgeDecision, DodgeMovement, SafePositionFinder
@@ -158,7 +159,7 @@ Assets/Scripts
 
 ## 14. จุดที่ควรต่อยอดเอง
 
-- **Pathfinding**: `PathFollowing.cs` เป็น Steering แบบง่าย ถ้าฉากซับซ้อนแนะนำเปลี่ยนไปใช้ NavMesh2D หรือ A* Pathfinding Project
+- **Pathfinding**: ทำแล้วแบบ Hybrid — state ระยะไกล (Patrol/Chase/Search/SeekHeal) ใช้ NavMesh ผ่าน `Navigation/AgentPathMover` (bake ด้วยเมนู `Tools > NavMesh 2D`) fallback เป็น Steering อัตโนมัติเมื่อฉากยังไม่ bake; state ระยะสั้น (Dodge/Cover/Flank) ยังใช้ Steering; ต่อยอดได้: bake ทุกฉาก production, local avoidance ระหว่าง agent (RVO)
 - **Object Pooling**: ตอนนี้ `ShootController`/`Bullet` ใช้ `Instantiate`/`Destroy` ตรงๆ ถ้ามีการยิงถี่มากควรทำ Pool
 - **Animator Controller**: ต้องสร้างเอง (ไฟล์นี้ให้แค่ตัวส่งพารามิเตอร์)
 - **Death Handling**: ปัจจุบัน `Health.OnDeath` เป็น UnityEvent เปล่า ให้ผูกกับการปิด `EnemyBrain`/เล่น Animation ตาย/Destroy ผ่าน Inspector หรือโค้ดเพิ่มเติม

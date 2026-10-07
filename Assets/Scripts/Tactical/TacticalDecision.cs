@@ -11,9 +11,18 @@ namespace TopDownTacticalAI.Tactical
     /// สำคัญ: มี Hysteresis (กันการสลับ State รัวๆ) สำหรับ Cover และ Chase/Combat
     /// เพราะถ้าไม่มี การเช็คแบบ Threshold ตรงๆ ทุกเฟรมจะทำให้ AI "สลับ State ไปมาทุกเฟรม"
     /// เมื่อค่าที่วัด (ระยะ/HP/กระสุน) อยู่ใกล้เส้นแบ่งพอดี ซึ่งจะทำให้ตัวละครหมุน/ขยับกระตุกเหมือนเป็นบั๊ก
+    ///
+    /// หมายเหตุประสิทธิภาพ:
+    /// - กระสุน: อ่านจาก blackboard.BulletIncoming (EnemyBrain คำนวณครั้งเดียวตาม bulletDetectInterval)
+    /// - ที่กำบัง: cache ไว้ใน blackboard.CurrentCover — สแกนใหม่เมื่อ cover หาย/หมดคูลดาวน์ 0.5 วิ
+    ///   (ของเดิมยิง CoverScanner 9 เส้นต่อ candidate ทุกเฟรมระหว่างเดินเข้า cover + ทำให้ cover "กระโดด")
+    /// - เหตุผล: buildReason=false ตอนไม่มี Debug HUD → ไม่ allocate string ทุกเฟรม
     /// </summary>
     public static class TacticalDecision
     {
+        /// <summary>เวลารอสแกนหาที่กำบังใหม่เมื่อ cover เดิมยังใช้ได้ (วินาที)</summary>
+        private const float CoverRescanInterval = 0.5f;
+
         public static EnemyState DecideNextState(
             Blackboard blackboard,
             Vector2 selfPosition,
@@ -24,34 +33,47 @@ namespace TopDownTacticalAI.Tactical
             float coverSearchRadius,
             float dodgeDetectRadius,
             EnemyState currentState,
-            out string reason)
+            out string reason,
+            bool buildReason = true)
         {
             // 1) Priority สูงสุด: เห็นผู้เล่นอยู่ + กระสุนจะโดนจริง -> Dodge
             //    (ไม่ใช้การทอยสุ่มแล้ว — หลบเมื่อการทำนายบอกว่ากระสุนจะพุ่งโดนตัวเราจริง §17/§18)
             //    และบาง Role เช่น Tank ไม่ dodge แบบปกติ (§29) — ใช้ตัวมันบังกระสุนแทน
-            if (blackboard.CanSeeTarget && blackboard.CanDodge)
+            //    ผลตรวจกระสุนมาจาก EnemyBrain (blackboard.BulletIncoming) — ไม่ยิง OverlapCircle เองทุกเฟรม
+            if (blackboard.CanSeeTarget && blackboard.CanDodge && blackboard.BulletIncoming)
             {
-                bool bulletIncoming = Dodge.BulletDetector.IsBulletIncoming(selfPosition, dodgeDetectRadius, bulletMask, out Vector2 bulletVel, out Vector2 bulletPos);
-                if (bulletIncoming && Dodge.DodgeDecision.ShouldDodge(true, selfPosition, bulletPos, bulletVel, blackboard.BodyRadius))
+                if (Dodge.DodgeDecision.ShouldDodge(true, selfPosition, blackboard.BulletPosition, blackboard.BulletVelocity, blackboard.BodyRadius))
                 {
-                    reason = "เห็นผู้เล่น + ทำนายแล้วว่ากระสุนจะโดนจริง → หลบด่วน!";
+                    reason = buildReason ? "เห็นผู้เล่น + ทำนายแล้วว่ากระสุนจะโดนจริง → หลบด่วน!" : null;
                     return EnemyState.Dodge;
                 }
             }
 
-            // 1.2) TANK: Healer ถูกคุกคาม → ออกไปบัง (§2 priority 1, §8/§9)
+            // 1.2/1.3) TANK duty (คุ้มกัน Healer / สกัดเพื่อน) — มีเงื่อนไข 2 ข้อก่อน:
+            //
+            // a) Self-bailout: เลือดวิกฤต (≤ critical) + มี healer → "การอยู่รอด" มาก่อนหน้าที่
+            //    (ของเดิม: duty branch อยู่ก่อน retreat + priority เท่ากัน → tank 5% HP ยังยืนบังจนตาย)
+            // b) Leash: อยู่ห่าง healer เกิน TankLeashRange → ไม่ไล่ทำ duty ข้ามแมพ
+            //    (ของเดิม: ไม่มีระยะจำกัด เดินข้ามแมพไปกลางทางผู้เล่น-เพื่อน)
+            bool tankMustSurvive = blackboard.IsTankRole
+                && blackboard.HealerAvailable
+                && blackboard.SelfHealthPercent <= blackboard.CriticalRetreatHealthThreshold;
+            bool tankWithinLeash = !blackboard.IsTankRole
+                || blackboard.HealerDistance <= blackboard.TankLeashRange;
+
+            // TANK: Healer ถูกคุกคาม → ออกไปบัง (§2 priority 1, §8/§9)
             //      วางไว้ก่อนกิ่งถอย เพราะหน้าที่อันดับแรกของ Tank คือคุ้มกัน
             //      (และ RetreatOnlyWhenCritical ทำให้ tank ถอยเฉพาะเลือดวิกฤตอยู่ดี)
-            if (blackboard.IsTankRole && blackboard.HealerThreatened)
+            if (blackboard.IsTankRole && blackboard.HealerThreatened && !tankMustSurvive && tankWithinLeash)
             {
-                reason = "Tank: Healer ถูกคุกคาม! → ออกไปบังระหว่างผู้เล่นกับ Healer (PROTECT_HEALER)";
+                reason = buildReason ? "Tank: Healer ถูกคุกคาม! → ออกไปบังระหว่างผู้เล่นกับ Healer (PROTECT_HEALER)" : null;
                 return EnemyState.ProtectHealer;
             }
 
-            // 1.3) TANK: เพื่อนกำลังหนีและถูกผู้เล่นไล่ → เข้าไปสกัด/ดึงดูด (§2 priority 2-4, §10/§21)
-            if (blackboard.IsTankRole && blackboard.RetreatingAllyUnderThreat)
+            // TANK: เพื่อนกำลังหนีและถูกผู้เล่นไล่ → เข้าไปสกัด/ดึงดูด (§2 priority 2-4, §10/§21)
+            if (blackboard.IsTankRole && blackboard.RetreatingAllyUnderThreat && !tankMustSurvive && tankWithinLeash)
             {
-                reason = "Tank: เพื่อนกำลังหนีและถูกไล่ → เข้าไปขวาง/สกัดผู้เล่น (PEEL_ALLY)";
+                reason = buildReason ? "Tank: เพื่อนกำลังหนีและถูกไล่ → เข้าไปขวาง/สกัดผู้เล่น (PEEL_ALLY)" : null;
                 return EnemyState.PeelAlly;
             }
 
@@ -70,14 +92,16 @@ namespace TopDownTacticalAI.Tactical
 
                 if (inHealRange)
                 {
-                    reason = $"เลือดเหลือ {blackboard.SelfHealthPercent * 100f:F0}% และอยู่ในระยะฮีลแล้ว → อยู่กับที่รอฮีล (SEEK_HEAL)";
+                    reason = buildReason ? $"เลือดเหลือ {blackboard.SelfHealthPercent * 100f:F0}% และอยู่ในระยะฮีลแล้ว → อยู่กับที่รอฮีล (SEEK_HEAL)" : null;
                     return EnemyState.SeekHeal;
                 }
 
                 bool isCritical = blackboard.SelfHealthPercent <= blackboard.CriticalRetreatHealthThreshold;
-                reason = isCritical
-                    ? $"⚠ เลือดวิกฤต {blackboard.SelfHealthPercent * 100f:F0}%! เอาชีวิตรอดมาก่อน → ถอยหนีไปหา Healer"
-                    : $"เลือดเหลือ {blackboard.SelfHealthPercent * 100f:F0}% → ถอยกลับไปหา Healer (RETREAT)";
+                reason = buildReason
+                    ? (isCritical
+                        ? $"⚠ เลือดวิกฤต {blackboard.SelfHealthPercent * 100f:F0}%! เอาชีวิตรอดมาก่อน → ถอยหนีไปหา Healer"
+                        : $"เลือดเหลือ {blackboard.SelfHealthPercent * 100f:F0}% → ถอยกลับไปหา Healer (RETREAT)")
+                    : null;
                 return EnemyState.Retreat;
             }
 
@@ -86,27 +110,56 @@ namespace TopDownTacticalAI.Tactical
             //      วางไว้ก่อนกิ่ง Patrol/Search เพื่อให้ฮีลได้แม้ไม่เห็นผู้เล่นเลย
             if (blackboard.IsHealerRole && blackboard.WoundedAllyExists)
             {
-                reason = "Healer: มีเพื่อนบาดเจ็บ → เข้าไปฮีล (HEAL_ALLY)";
+                reason = buildReason ? "Healer: มีเพื่อนบาดเจ็บ → เข้าไปฮีล (HEAL_ALLY)" : null;
                 return EnemyState.HealAlly;
             }
 
             // 2.5) ไม่เห็นผู้เล่นเลย
             if (!blackboard.CanSeeTarget && !blackboard.HasMemory)
             {
-                reason = "ไม่เห็นผู้เล่น และไม่มีความจำเก่า → เดินตรวจตราตามปกติ";
+                // Healer: ไม่ไป Patrol เดินมั่ว — เดินตามเพื่อนเตรียมพร้อมฮีลแทน (§4)
+                if (blackboard.IsHealerRole)
+                {
+                    reason = buildReason ? "Healer: ไม่มีอะไรเร่งด่วน → เดินตามเพื่อนเตรียมพร้อมฮีล (FOLLOW_ALLY)" : null;
+                    return EnemyState.FollowAlly;
+                }
+
+                reason = buildReason ? "ไม่เห็นผู้เล่น และไม่มีความจำเก่า → เดินตรวจตราตามปกติ" : null;
                 return EnemyState.Patrol;
             }
 
             if (!blackboard.CanSeeTarget && blackboard.HasMemory)
             {
-                // Healer ไม่ออกค้นหาเอง — หน้าที่คืออยู่ให้ปลอดภัยและรอฮีลเพื่อน (§4)
+                // Healer ไม่ออกค้นหาเอง — หน้าที่คืออยู่ให้ปลอดภัยและอยู่กับเพื่อน (§4)
                 if (blackboard.IsHealerRole)
                 {
-                    reason = "Healer: เสียสายตาผู้เล่น → ไม่ออกค้นหาเอง อยู่ดูแลเพื่อน";
-                    return blackboard.WoundedAllyExists ? EnemyState.HealAlly : EnemyState.Patrol;
+                    if (blackboard.WoundedAllyExists)
+                    {
+                        reason = buildReason ? "Healer: เสียสายตาผู้เล่น แต่มีเพื่อนรอฮีล → เข้าไปฮีล" : null;
+                        return EnemyState.HealAlly;
+                    }
+                    reason = buildReason ? "Healer: เสียสายตาผู้เล่น → ไม่ออกค้นหาเอง กลับไปเดินตามเพื่อน" : null;
+                    return EnemyState.FollowAlly;
                 }
 
-                reason = $"เพิ่งเห็นผู้เล่นหายไป (จำได้อีก {blackboard.LastSeen.TimeSeen:F0}s ที่แล้ว) → ไปดูจุดล่าสุด/ค้นหา";
+                // ── Intercept (ระบบอ้อมดักแบบใหม่): เพื่อนยัง "เห็นผู้เล่นอยู่จริง" ตอนนี้ ──
+                // → ไม่ต้องไปค้นจุดเก่า รีบไปตำแหน่งที่เพื่อนเจอ + จัดวงล้อมปิดทางหนีทันที
+                // (คนแรกเห็น → ทุกตัวที่มีความจำเข้าโหมดอ้อมดัก = ผู้เล่นหนีไม่หลุด)
+                if (GroupAI.Instance != null && GroupAI.Instance.TryGetContact(out _))
+                {
+                    reason = buildReason ? "เพื่อนยังเห็นผู้เล่นอยู่ (Active Contact) → รีบไปอ้อมดัก (INTERCEPT)" : null;
+                    return EnemyState.Chase;
+                }
+
+                // Peripheral: รู้สึกได้รอบตัวแบบอ่อนๆ จากทรงกลม (มีคนข้างหลังแต่ยังเห็นไม่ชัด)
+                // → หยุดหันไปจ้องทิศนั้นก่อน (Suspicious) ไม่รีบวิ่งไปแบบสุ่มสี่สุ่มห้า
+                if (blackboard.PeripheralHit)
+                {
+                    reason = buildReason ? "รู้สึกได้รอบตัว (Peripheral Vision) → หยุดหันไปจ้องทิศที่รู้สึก" : null;
+                    return EnemyState.Suspicious;
+                }
+
+                reason = buildReason ? $"เพิ่งเห็นผู้เล่นหายไป (จำได้อีก {blackboard.LastSeen.TimeSeen:F0}s ที่แล้ว) → ไปดูจุดล่าสุด/ค้นหา" : null;
                 return EnemyState.Search;
             }
 
@@ -115,7 +168,16 @@ namespace TopDownTacticalAI.Tactical
             // (กันไม่ให้ AI "รู้ทันที" ว่าเจอผู้เล่นแบบไม่สมจริง เหมือนโหมด Caution ก่อน Alert เต็มตัวใน MGS)
             if (blackboard.CanSeeTarget && !blackboard.IsTargetConfirmed)
             {
-                reason = $"เห็นเงาๆ กำลังตรวจสอบให้แน่ใจ... (สงสัย {blackboard.SuspicionLevel * 100f:F0}%)";
+                // Healer: "ไม่หยุดยืนสงสัย" — เดินตามเพื่อน/ฮีลต่อไป ความสงสัยยังสะสมใน EnemyBrain เหมือนเดิม
+                // พอครบ 100% → IsTargetConfirmed → เข้า Combat เองได้ตามปกติ
+                // (แก้อาการ log: FollowAlly ↔ Suspicious สลับรัว = ฮีลเลอร์หยุดยืน-เดิน-หยุด ดูกระตุก)
+                if (blackboard.IsHealerRole)
+                {
+                    reason = buildReason ? "Healer: เห็นเงาๆ ยังไม่ยืนยัน → ไม่หยุดสงสัย เดินตามเพื่อน/ฮีลต่อ" : null;
+                    return EnemyState.FollowAlly;
+                }
+
+                reason = buildReason ? $"เห็นเงาๆ กำลังตรวจสอบให้แน่ใจ... (สงสัย {blackboard.SuspicionLevel * 100f:F0}%)" : null;
                 return EnemyState.Suspicious;
             }
 
@@ -135,7 +197,7 @@ namespace TopDownTacticalAI.Tactical
 
                 if (stillDangerous)
                 {
-                    reason = "ยังอยู่ในสถานการณ์อันตราย (HP/กระสุน/ระยะ) → หลบอยู่ในที่กำบังต่อ";
+                    reason = buildReason ? "ยังอยู่ในสถานการณ์อันตราย (HP/กระสุน/ระยะ) → หลบอยู่ในที่กำบังต่อ" : null;
                     return EnemyState.Cover;
                 }
                 // ปลอดภัยพอแล้ว: ปล่อยให้ไหลลงไปประเมินใหม่ด้านล่างตามปกติ (ออกจากที่กำบัง)
@@ -147,22 +209,51 @@ namespace TopDownTacticalAI.Tactical
             bool shouldSeekCover = CoverDecision.ShouldSeekCover(blackboard, blackboard.DistanceToTarget, manaAdjustedDangerRange);
             if (shouldSeekCover)
             {
-                CoverPoint cover = CoverScanner.FindBestAvailableCover(selfPosition, blackboard.CurrentTarget != null ? (Vector2)blackboard.CurrentTarget.position : selfPosition, coverSearchRadius, coverMask, obstacleMask);
-                if (cover != null)
+                // ── ใช้ cover ที่ cache ไว้ก่อน — สแกนใหม่เฉพาะเมื่อ cover หาย/ถูกทำลาย/หมดคูลดาวน์ ──
+                // (ของเดิมเรียก CoverScanner ทุกเฟรม: OverlapCircleAll + 9 raycasts ต่อ candidate
+                //  และเพราะ FindBestAvailableCover "ข้าม cover ที่ occupied" รวมของตัวเอง
+                //  ทำให้เลือก cover ใหม่สลับไปมา = cover hopping + leak ของ flag Occupy)
+                bool coverCacheValid = blackboard.CurrentCover != null; // Unity null = ถูกทำลาย
+                if (!coverCacheValid || blackboard.CoverScanCooldown <= 0f)
                 {
-                    blackboard.CurrentCover = cover.transform;
-                    cover.Occupy();
+                    CoverPoint cover = CoverScanner.FindBestAvailableCover(
+                        selfPosition,
+                        blackboard.CurrentTarget != null ? (Vector2)blackboard.CurrentTarget.position : selfPosition,
+                        coverSearchRadius, coverMask, obstacleMask);
 
+                    if (cover != null)
+                    {
+                        // ปลด cover เก่า (ของตัวเอง) ก่อนสลับ — กัน flag Occupy รั่ว
+                        if (blackboard.CurrentCover != null
+                            && blackboard.CurrentCover.TryGetComponent(out CoverPoint oldCover))
+                        {
+                            oldCover.Release();
+                        }
+
+                        blackboard.CurrentCover = cover.transform;
+                        cover.Occupy();
+                        blackboard.CoverScanCooldown = CoverRescanInterval;
+                        coverCacheValid = true;
+                    }
+                    else if (!coverCacheValid)
+                    {
+                        // ไม่มี cover ในรอบนี้ — รอคูลดาวน์แล้วค่อยสแกนใหม่ ไม่ยิงซ้ำทุกเฟรม
+                        blackboard.CoverScanCooldown = CoverRescanInterval;
+                    }
+                }
+
+                if (coverCacheValid)
+                {
                     string coverCause = blackboard.IsLowHP ? "HP ต่ำ" : (blackboard.IsReloading || blackboard.CurrentAmmo <= 0) ? "กระสุนหมด/กำลังรีโหลด" : "ผู้เล่นเข้าใกล้เกินไป";
                     string manaNote = blackboard.PlayerManaLow ? " (แต่ผู้เล่น Mana ต่ำ ยังกล้าเสี่ยงอยู่บ้าง)" : " (ผู้เล่น Mana เต็ม ระวังตัวไว้ก่อน)";
-                    reason = $"เห็นผู้เล่น แต่ {coverCause} → หลบเข้าที่กำบัง{manaNote}";
+                    reason = buildReason ? $"เห็นผู้เล่น แต่ {coverCause} → หลบเข้าที่กำบัง{manaNote}" : null;
                     return EnemyState.Cover;
                 }
             }
 
             // 4) ระยะไกลเกินไปที่จะยิง -> ไล่ตามก่อน (มี Hysteresis กันแกว่งกับ Combat)
             float chaseCombatThreshold = dangerRange * 2f;
-            float chaseHysteresis = 0.75f;
+            float chaseHysteresis = 1.5f; // กว้างขึ้นจาก 0.75 — (log จริง: Tank เข้า-ออกระยะ 5.3↔7.3↔9.4 สลับถี่ = เดินเข้า-ออกรอบเดิม)
             bool effectiveTooFar = currentState == EnemyState.Combat || currentState == EnemyState.Flank
                 ? blackboard.DistanceToTarget > chaseCombatThreshold + chaseHysteresis  // อยู่ Combat อยู่แล้ว ต้องไกลกว่านี้ถึงจะออกไปไล่
                 : blackboard.DistanceToTarget > chaseCombatThreshold - chaseHysteresis; // ยังไม่ได้ Combat ต้องใกล้กว่านี้ถึงจะเข้า
@@ -170,14 +261,19 @@ namespace TopDownTacticalAI.Tactical
             if (effectiveTooFar)
             {
                 // Healer ไม่ไล่ตามผู้เล่น (§4 — attack only when safe, ไม่ออกบุกเดี่ยว)
-                // กลับไปทำหน้าที่ฮีล หรือเฝ้าตำแหน่งแทน
+                // กลับไปทำหน้าที่ฮีล หรือเดินตามเพื่อนเตรียมพร้อมแทน
                 if (blackboard.IsHealerRole)
                 {
-                    reason = "Healer: ผู้เล่นอยู่ไกล → ไม่ไล่ตาม กลับไปดูแลเพื่อน";
-                    return blackboard.WoundedAllyExists ? EnemyState.HealAlly : EnemyState.Patrol;
+                    if (blackboard.WoundedAllyExists)
+                    {
+                        reason = buildReason ? "Healer: ผู้เล่นอยู่ไกล แต่มีเพื่อนรอฮีล → กลับไปฮีล" : null;
+                        return EnemyState.HealAlly;
+                    }
+                    reason = buildReason ? "Healer: ผู้เล่นอยู่ไกล → ไม่ไล่ตาม กลับไปเดินตามเพื่อน (FOLLOW_ALLY)" : null;
+                    return EnemyState.FollowAlly;
                 }
 
-                reason = $"เห็นผู้เล่นแต่ระยะไกลเกินไป ({blackboard.DistanceToTarget:F1}m) → วิ่งเข้าไปไล่ตาม";
+                reason = buildReason ? $"เห็นผู้เล่นแต่ระยะไกลเกินไป ({blackboard.DistanceToTarget:F1}m) → วิ่งเข้าไปไล่ตาม" : null;
                 return EnemyState.Chase;
             }
 
@@ -186,7 +282,7 @@ namespace TopDownTacticalAI.Tactical
             //      + ยิงระหว่างวน (§3 priority 5)
             if (blackboard.IsFlankerRole)
             {
-                reason = "Flanker: เข้าปะทะ → อ้อมหาตำแหน่งข้าง/หลังแล้ววนยิง (FLANK)";
+                reason = buildReason ? "Flanker: เข้าปะทะ → อ้อมหาตำแหน่งข้าง/หลังแล้ววนยิง (FLANK)" : null;
                 return EnemyState.Flank;
             }
 
@@ -194,7 +290,7 @@ namespace TopDownTacticalAI.Tactical
             //    Healer เข้า state Combat ได้ — มันจะ "รักษาระยะ" ด้วยการถอยเมื่อผู้เล่นใกล้เกิน
             //    PreferredMinRange ตามที่ preset ตั้งไว้ (และยิงไม่ออกเพราะไม่มีกระสุนให้)
             //    ซึ่งตรงกับ "attack only when safe / keep distance" ของบทบาท healer (§4/§29)
-            reason = $"เห็นผู้เล่นในระยะยิง ({blackboard.DistanceToTarget:F1}m) HP/กระสุนพร้อม → เข้าปะทะ";
+            reason = buildReason ? $"เห็นผู้เล่นในระยะยิง ({blackboard.DistanceToTarget:F1}m) HP/กระสุนพร้อม → เข้าปะทะ" : null;
             return EnemyState.Combat;
         }
     }

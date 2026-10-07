@@ -31,6 +31,8 @@ namespace TopDownTacticalAI.DebugTools
         public Color SafetyColor = new Color(0f, 1f, 0f, 0.35f);
         public Color NeutralColor = new Color(1f, 1f, 1f, 0.05f);
         public Color BestTargetColor = new Color(0.2f, 0.4f, 1f, 0.9f);
+        [Tooltip("ช่องที่มีกำแพง/สิ่งกีดขวาง (เดินไปไม่ได้) — วาดทึบเทาเพื่อให้เห็นว่าสแกนกำแพงเจอตรงไหน")]
+        public Color BlockedColor = new Color(0.1f, 0.1f, 0.12f, 0.85f);
 
         private Transform _player;
 
@@ -64,6 +66,15 @@ namespace TopDownTacticalAI.DebugTools
                 {
                     Vector2 cell = origin + new Vector2(gx * CellSize, gy * CellSize);
                     if (Vector2.Distance(origin, cell) > SearchRadius) continue;
+
+                    // ช่องนี้ชนกำแพง/สิ่งกีดขวาง — เดินไปไม่ได้ วาดสีทึบแยกออกจากช่องเดินได้
+                    // (ตรงกับที่ InfluenceMap.FindBestPosition ข้ามช่องแบบนี้ไว้ ทำให้เห็นว่าสแกนกำแพงเจอตรงไหนบ้าง)
+                    if (Physics2D.OverlapCircle(cell, CellSize * 0.3f, ObstacleMask) != null)
+                    {
+                        Gizmos.color = BlockedColor;
+                        Gizmos.DrawCube(cell, Vector3.one * (CellSize * 0.9f));
+                        continue;
+                    }
 
                     float dangerScore = 0f;
                     foreach (var d in dangerSources)

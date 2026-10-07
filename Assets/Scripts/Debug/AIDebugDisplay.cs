@@ -44,6 +44,7 @@ namespace TopDownTacticalAI.DebugTools
             { EnemyState.ProtectHealer, new Color(1f, 0.85f, 0.3f) },
             { EnemyState.PeelAlly, new Color(0.9f, 0.6f, 0.1f) },
             { EnemyState.Flank, new Color(1f, 0.4f, 0.6f) },
+            { EnemyState.FollowAlly, new Color(0.2f, 0.9f, 0.9f) },
         };
 
         private static readonly System.Collections.Generic.Dictionary<EnemyState, string> StateThaiNames = new System.Collections.Generic.Dictionary<EnemyState, string>
@@ -61,6 +62,7 @@ namespace TopDownTacticalAI.DebugTools
             { EnemyState.ProtectHealer, "บัง Healer" },
             { EnemyState.PeelAlly, "สกัดผู้เล่น" },
             { EnemyState.Flank, "อ้อมโจมตี" },
+            { EnemyState.FollowAlly, "เดินตามเพื่อน" },
         };
 
         private void Awake()

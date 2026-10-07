@@ -17,6 +17,11 @@ namespace TopDownTacticalAI.Utilities
         private static readonly float[] WhiskerAngles = { 0f, 25f, -25f, 50f, -50f, 80f, -80f, 120f, -120f };
         private static readonly float[] ProbeAngles = { 0f, 45f, 90f, 135f, 180f, -45f, -90f, -135f };
 
+        // Buffer กลางสำหรับ raycast — ไม่ allocate array ใหม่ทุกเฟรม/ทุกตัว (ค่า GC รั่ว)
+        // ปลอดภัยเพราะเกมโค้ด single-threaded และค่าถูกใช้จบภายในฟังก์ชันเดียวกัน
+        private static readonly RaycastHit2D[] s_whiskerHits = new RaycastHit2D[1];
+        private static readonly RaycastHit2D[] s_pathHits = new RaycastHit2D[4];
+
         /// <summary>
         /// คืนทิศทางที่ควรเดินจริง โดยหลบกำแพง + เว้นระยะจากพันธมิตร แล้วค่อยตรวจสอบทางตันซ้ำอีกที
         /// </summary>
@@ -68,7 +73,7 @@ namespace TopDownTacticalAI.Utilities
                 probeDistance = Mathf.Max(probeDistance, bodyRadius * 0.7f);
             }
 
-            var castHits = new RaycastHit2D[1];
+            var castHits = s_whiskerHits; // buffer กลาง ไม่ allocate ทุกเฟรม (single-threaded — ใช้แล้วจบในเฟรมนี้)
             var filter = new ContactFilter2D
             {
                 useLayerMask = true,
@@ -188,7 +193,7 @@ namespace TopDownTacticalAI.Utilities
                 layerMask = obstacleMask,
                 useTriggers = false
             };
-            var hits = new RaycastHit2D[4];
+            var hits = s_pathHits; // buffer กลาง ไม่ allocate ทุกเฟรม
 
             int count = Physics2D.CircleCast(from, radius, dir, filter, hits, distance + 0.05f);
             for (int i = 0; i < count; i++)

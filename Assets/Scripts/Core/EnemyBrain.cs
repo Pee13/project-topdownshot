@@ -15,6 +15,7 @@ using TopDownTacticalAI.Player;
 using TopDownTacticalAI.Map;
 using TopDownTacticalAI.UI;
 using TopDownTacticalAI.Utilities;
+using TopDownTacticalAI.Pathfinding;
 
 namespace TopDownTacticalAI.Core
 {
@@ -81,15 +82,15 @@ namespace TopDownTacticalAI.Core
 
         [Header("Memory")]
         [Tooltip("ระยะเวลา (วินาที) ที่ AI จะจำตำแหน่งล่าสุดของผู้เล่นได้ก่อนลืม")]
-        public float MemoryDuration = 20f;
+        public float MemoryDuration = 30f;
         [Tooltip("ระยะที่จะ 'วิ่งไล่ต่อ' ตามทิศทางที่ผู้เล่นกำลังวิ่งอยู่ตอนเสียสายตา ก่อนเริ่มค้นหาแบบละเอียด")]
-        public float SearchPursuitOvershoot = 3f;
+        public float SearchPursuitOvershoot = 5f;
         [Tooltip("เวลาสูงสุด (วินาที) ที่ยอมให้อยู่ในโหมดตื่นตัว/ค้นหาต่อเนื่อง ก่อนยอมแพ้แล้วกลับไปเฝ้าจุดเดิม (เหมือนโหมด Alert ใน Metal Gear Solid)")]
         public float MaxAlertDuration = 99f;
 
         [Header("Group Alert (เรียกพวกเมื่อโดนโจมตี)")]
-        [Tooltip("รัศมีที่เสียง/สัญญาณเตือนไปถึงเมื่อตัวนี้โดนโจมตี เพื่อนที่อยู่ไกลกว่านี้จะไม่รู้เรื่อง\n(ใช้เมื่อ AlertWholeTeam = false เท่านั้น)")]
-        public float AlertShoutRadius = 8f;
+        [Tooltip("รัศมีที่เสียง/สัญญาณเตือนไปถึงเมื่อตัวนี้เจอผู้เล่นครั้งแรกหรือโดนโจมตี เพื่อนที่อยู่ไกลกว่านี้จะไม่รู้เรื่อง\n(ใช้เมื่อ AlertWholeTeam = false เท่านั้น)")]
+        public float AlertShoutRadius = 60f;
         [Tooltip("เปิด = โดนยิงครั้งเดียว ทีมรู้ตำแหน่งผู้เล่นแม่นยำ 100% ทันที ไม่ว่าอยู่ไกลแค่ไหน\nปิด = ใช้ระยะเสียง AlertShoutRadius ปกติ")]
         public bool AlertWholeTeam = true;
 
@@ -108,14 +109,15 @@ namespace TopDownTacticalAI.Core
         [Range(0f, 1f)] public float RetreatHealthThreshold = 0.30f;
         [Tooltip("เลือดต่ำกว่านี้ → Critical Retreat — เอาชีวิตรอดเหนือกว่าการโจมตีทุกอย่าง")]
         [Range(0f, 1f)] public float CriticalRetreatHealthThreshold = 0.15f;
-        [Tooltip("ฮีลเฉพาะเพื่อนที่เลือดต่ำกว่านี้ (กัน Healer ไล่ฮีลคนที่เลือดเกือบเต็ม)")]
-        [Range(0f, 1f)] public float HealWorthThreshold = 0.80f;
+        [Tooltip("เกณฑ์ว่าเลือดเท่าไหร่ถือว่า 'ควรฮีล' — ตั้ง ≈0.99 = ฮีลใครก็ได้ที่ยังไม่เต็ม 100% (ไม่จำกัดเปอร์เซ็นต์ตายตัว)\n" +
+                 "การจัดลำดับทำด้วยคะแนน HP% ต่ำสุดก่อนใน HealTargetScorer แทนการตั้งเกณฑ์หลายเปอร์เซ็นต์")]
+        [Range(0f, 1f)] public float HealWorthThreshold = 0.99f;
         [Tooltip("Tank เลือดต่ำกว่านี้ได้โบนัสความสำคัญพิเศษ (Tank-first §16)")]
         [Range(0f, 1f)] public float TankHealThreshold = 0.80f;
         [Tooltip("เกณฑ์ 'เพื่อนวิกฤต' ที่ชนะลำดับความสำคัญปกติได้ (§16)")]
         [Range(0f, 1f)] public float CriticalAllyHealthThreshold = 0.25f;
-        [Tooltip("ระยะที่ฮีลได้ (หน่วยโลก)")]
-        public float HealRange = 25f;
+        [Tooltip("ระยะที่ฮีลได้ (หน่วยโลก) — ยิ่งมากยิ่งฮีลได้จากไกล ไม่ต้องเดินเข้าไปชิดตัว")]
+        public float HealRange = 40f;
         [Tooltip("อัตราการฮีล (HP ต่อวินาที)")]
         public float HealPerSecond = 20f;
         [Tooltip("ความเร็วตอนถอยกลับไปหา Healer")]
@@ -124,8 +126,13 @@ namespace TopDownTacticalAI.Core
         public float ProtectionDistance = 4f;
         [Tooltip("รัศมีค้นหาจุดยืนรอบตัว (Position Scoring §5)")]
         public float PositionSearchRadius = 6f;
-        [Tooltip("ผู้เล่นอยู่ใกล้ Healer น้อยกว่านี้ = Healer ถูกคุกคาม (§9)")]
+        [Tooltip("ผู้เล่นอยู่ใกล้ Healer น้อยกว่านี้ = Healer ถูกคุกคาม (§9) — ใช้ซ้ำเป็นระยะ TankLeash ด้วย (ห่าง healer เกินนี้ = ไม่ไล่ตาม duty ข้ามแมพ)")]
         public float HealerThreatRange = 20f;
+        [Tooltip("ระยะค้นหา Healer สูงสุดตอนถอย — กัน AI ถอยข้ามทั้งแมพหา healer ที่เอื้อมไม่ถึง (หน่วยโลก)")]
+        public float HealerLeashRange = 60f;
+        [Tooltip("Circle Vision ใหญ่ของ Healer — รัศมีที่ Healer 'รับรู้เพื่อนแบบทันที' ทุกตัวในวงกลม\n" +
+                 "(ความรู้ทีมจากรายชื่อ = ทันทีเสมอ; ค่านี้จำกัดระยะที่ยอมถือว่า 'คุ้มเดินไปฮีล')")]
+        public float AllyAwarenessRadius = 100f;
         [Tooltip("เพื่อนเลือดต่ำกว่านี้ + ถูกผู้เล่นไล่ → Tank ออกไป Peel (§10/§21)")]
         [Range(0f, 1f)] public float PeelAllyHpThreshold = 0.4f;
         [Tooltip("LineRenderer สำหรับวาดลำแสงฮีล (เว้นว่างให้หาจากตัวเองเอง)")]
@@ -149,6 +156,9 @@ namespace TopDownTacticalAI.Core
         private Vector2 _positionBeforeStateTick;
         private Vector2 _positionBeforeFixedTick;
         private Search.SearchState _searchState;
+
+        // ตัวกลางระบบนำทางแบบ Hybrid (NavMesh + Steering fallback) — สร้างใน Awake, detect NavMesh ใน Start
+        private AgentPathMover _mover;
 
         [Header("Obstacle Collision")]
         [Tooltip("ระยะเผื่อจากกำแพง ป้องกันมอนค้างหรือฝังใน Collider")]
@@ -179,6 +189,16 @@ namespace TopDownTacticalAI.Core
         private Vector2 _lastSafePosition;
         private bool _hasSafePosition;
 
+        // Buffer กลางสำหรับระบบกันกำแพง — ไม่ allocate array ใหม่ทุกเฟรม
+        // (ของเดิม new RaycastHit2D[8]/Collider2D[8] ใน ResolveObstacleCollision + EnsureNotInsideObstacle = ค่า GC รั่วทุกเฟรม)
+        private readonly RaycastHit2D[] _sweepHits = new RaycastHit2D[8];
+        private readonly Collider2D[] _pushOutHits = new Collider2D[8];
+        private readonly Collider2D[] _bodyOverlapHits = new Collider2D[8];
+
+        // สร้างเหตุผล (reason string) เฉพาะตอนที่มี AIDebugDisplay ติดอยู่ — กันค่า string interpolate ทุกเฟรม
+        // (ติด display ก่อนกด Play; ถ้า AddComponent ทีหลังเหตุผลจะว่างจนกว่าจะเล่นใหม่)
+        private bool _captureReasons;
+
         // ตั้งค่าใน ApplyRolePreset() แล้วค่อยส่งเข้า Blackboard หลังจากที่ Blackboard ถูกสร้าง
         // (ApplyRolePreset ทำงานก่อนสร้าง Blackboard จึงต้องเก็บไว้ตัวแปรชั่วคราวก่อน)
         private bool _canDodge = true;
@@ -187,6 +207,53 @@ namespace TopDownTacticalAI.Core
         private float _visionTimer;
         private float _threatTimer;
         private float _teamTimer;
+        private float _bulletTimer;
+
+        // ── Throttle การตัดสินใจ (ScoringWeights.decisionInterval) ──
+        // เฟรมที่ยังไม่ครบคูลดาวน์ใช้ผลลัพธ์ล่าสุดจาก cache — ไม่เรียก TacticalDecision+AIActionScorer ซ้ำ
+        private float _decisionTimer;
+        private EnemyState _cachedDecided = EnemyState.Patrol;
+        private float _cachedDecidedScore;
+        private string _cachedScorerReason;
+        private string _cachedReason;
+
+        // ── State Dwell: อยู่ใน state อย่างน้อย0.3 วิ ก่อนสลับ (ยกเว้นสถานะเอาชีวิตรอด) ──
+        // (log จริง: Flanker/Chase↔Search และ Tank Combat↔Chase สลับหลายครั้งต่อวินาทีตอนอยู่มุมกำแพง/
+        //  วนเข้า-ออกระยะ — dwell บังการสลับถี่ เหลือ ≥3.3 ครั้ง/วิ สลับรัวจนดูเหมือนยืนงง)
+        private float _stateDwellTimer;
+        private const float StateDwellTime = 0.3f;
+
+        // ── รายงานจุดที่เห็นให้เพื่อน (ต่อเนื่อง ไม่ใช่แค่ครั้งแรกแบบ BroadcastAlert) ──
+        private float _spotTimer;
+        private const float SpotInterval = 0.6f;      // บ่อยขึ้น (เดิม 1 วิ) — ตามหาผู้เล่นให้เจอเร็วขึ้นเมื่อเพื่อนเห็นก่อน
+        private const float SpotConfidence = 0.8f;   // ข้อมูลจากเพื่อน = ประกอบการตัดสินใจ ไม่ใช่ตำแหน่งแน่นอน 100%
+
+        // ── Cooperative Waiting: เพื่อนที่ถูกเลือกเป็นเป้าฮีลชะลอตัวให้ฮีลเดินเข้าถึงง่าย ──
+        // (ตั้งโดย HealAllyState บน "ตัวเพื่อนที่เป็นเป้า" — damping ทำหลัง State.Tick จุดเดียวครอบคลุมทุก state)
+        /// <summary>ตัวคูณความเร็วของเพื่อนที่เป็นเป้าฮีล (HP≤30%) — ใช้ร่วมโดย damping ใน EnemyBrain และ AgentPathMover (โหมดเส้นทาง)
+        /// 0.20 = คลานรอแทบไม่ขยับ (ของเดิม 0.35 ยังขยับหนีจนฮีลต้องไล่ตาม → อาการฮีล/เดิน สลับที่ขอบระยะ)</summary>
+        public const float PatientSpeedFactor = 0.20f;
+
+        // ── VelocityEstimate: ประมาณความเร็วของตัวเองจากผลต่างตำแหน่งต่อเฟรม ──
+        // ไม่มี velocity จริงเพราะ AI เขียน transform.position ตรง — ตัวนี้เป็นตัวแทนให้ scorer ข้างเคียงใช้
+        // (เช่น HealTargetScorer ดูว่าเพื่อน "กำลังเดินเข้าหา" ไหม → โบนัสคะแนน)
+        private Vector2 _lastVelocityPos;
+        /// <summary>ความเร็วโดยประมาณของตัวนี้ (หน่วย/วินาที) — คำนวณจากผลต่างตำแหน่งระหว่างเฟรม</summary>
+        public Vector2 VelocityEstimate { get; private set; }
+
+        /// <summary>
+        /// true เมื่อตัวนี้ถูกเลือกเป็น "เป้าหมายฮีล" — ให้ชะลอตัวระหว่างที่ฮีลเดินเข้ามา
+        /// (Cooperative Waiting — เพื่อนบาดเจ็บไม่วิ่งหนีห่างจนฮีลตามไม่ทัน แต่ยังขยับได้ 35% และหลบกระสุนได้เต็มที่)
+        /// ตั้ง/ล้างโดย HealAllyState
+        /// </summary>
+        public bool IsHealPatient { get; set; }
+
+        // ── เสียงที่กำลัง "เดินทางมาถึง" (gradient noise — ไกล = ช้ากว่า) ──
+        // ประมวลผลใน Update เมื่อครบเวลา แทนการบันทึกทันทีที่ได้ยิน
+        private Vector2 _pendingNoisePos;
+        private float _pendingNoiseConf;
+        private float _pendingNoiseTime;
+        private const float NoiseMaxDelay = 0.8f; // หน่วงเวลาสูงสุดของเสียงที่ไกลที่สุดในรัศมี (วินาที)
 
         /// <summary>
         /// ถึงเวลาทำงานนั้นหรือยัง — ใช้ลดความถี่ของงานหนักไม่ให้ทำทุกเฟรม
@@ -223,11 +290,12 @@ namespace TopDownTacticalAI.Core
                 case EnemyRole.Defensive:
                     // บทบาท "Tank" ของฉากนี้ — ตัวใหญ่ ทน ไม่เบี่ยงหลบแบบปกติ (§29)
                     // เพราะหน้าที่คือ "ยืนบัง" ไม่ใช่ "หลบ" — หลบไปแล้วเพื่อนที่อยู่หลังจะโดน
-                    MaxAttackRange = 7f;
-                    PreferredMinRange = 4f;
+                    MaxAttackRange = 10f;       // ยืนห่างผู้เล่นขึ้นตอน Combat (เดิม 7 — ชิดเกินไป)
+                    PreferredMinRange = 6f;     // เว้นระยะขั้นต่ำเพิ่ม (เดิม 4)
                     DangerRange = 4.5f; // ถอยเข้าที่กำบังไว
                     CoverSearchRadius *= 1.4f;
                     ChaseSpeed *= 0.9f;
+                    PersonalSpace *= 1.35f;     // เว้นระยะจากเพื่อน (Sup/Tank ไม่ยืนชิดกันตอน Combat)
                     _canDodge = false;
                     break;
 
@@ -250,11 +318,11 @@ namespace TopDownTacticalAI.Core
                     // ตัวสนับสนุน: ต้องรอดนานที่สุดและอยู่ห่างจากแนวหน้า
                     // ไม่เน้นบุก ไม่เน้นยิง — เน้นอยู่ใกล้พวกเพื่อช่วยเหลือ
                     // หลบกระสุนได้ "แบบชิบหลับ" — ตรวจเฉพาะกระสุนที่ใกล้มาก ๆ เท่านั้น
-                    MaxAttackRange = 5f;
-                    PreferredMinRange = 5f;      // ถอยห่างกว่าใคร เพื่อไม่ให้ติดแนวหน้า
+                    MaxAttackRange = 7f;         // ช่วงยิง/ยืนห่างผู้เล่นขึ้น (เดิม 5 — ชิดเกินไป)
+                    PreferredMinRange = 6f;      // เว้นระยะจากผู้เล่นขึ้น (เดิม 5)
                     DangerRange = 6f;            // ระวังตัวสูง ถอยไว
                     ChaseSpeed *= 0.7f;          // ไม่ไล่ตามไกล
-                    PersonalSpace *= 1.6f;       // เว้นระยะจากเพื่อนมากกว่าปกติ (กันไปบังเพื่อน)
+                    PersonalSpace *= 1.9f;       // เว้นระยะจากเพื่อนมาก (Sup/Tank ไม่ยืนชิดกันตอน Combat)
                     AlertShoutRadius *= 1.4f;    // รับรู้/กระจายข่าวในวงกว้างเพื่อช่วยทีม
                     CoverSearchRadius *= 1.3f;   // หาที่กำบังเก่งกว่า เพราะต้องรอด
                     _canDodge = true;            // หลบได้แต่ตรวจแค่ใกล้มาก (แย่กว่า Flanker)
@@ -275,7 +343,7 @@ namespace TopDownTacticalAI.Core
                     PatrolRadius *= 1.3f;
                     DodgeDetectRadius *= 2f;     // ตรวจกระสุนไกล ๆ ได้ — หลบทันทีที่กระสุนออกปาก
                     DodgeDistance *= 1.5f;       // หลบ "ไกล" ตามที่ออกแบบ — ไม่ใช่ขยับนิดเดียว
-                    RetreatSpeed *= 10f;         // หนีไปหา healer ให้ไว (เดิม 3 = เดินริ้วรอย)
+                    RetreatSpeed *= 1.5f;        // หนีหา healer เร็วกว่าปกติเล็กน้อย (ของเดิม ×10 = 30 หน่วย/วิ เร็วผิดธรรมชาติจนดูเหมือนวาร์ป)
                     _canDodge = true;
                     break;
 
@@ -336,6 +404,9 @@ namespace TopDownTacticalAI.Core
             _blackboard = new Blackboard { MaxAmmo = MaxAmmo, CurrentAmmo = MaxAmmo };
             _stateMachine = new StateMachine();
             _bodyCollider = GetComponent<Collider2D>();
+            _captureReasons = GetComponent<DebugTools.AIDebugDisplay>() != null;
+            _blackboard.CaptureReasons = _captureReasons; // เผยให้ state อื่นใช้กันสร้าง string เปล่า ๆ
+            _decisionTimer = ScoringWeights.decisionInterval; // ให้ตัดสินใจทันทีในเฟรมแรก (ไม่ต้องรอคูลดาวน์แรก)
 
             // รัศมีตัวเอง — ใช้ตอนทำนายว่ากระสุนจะโดนไหม (DodgeDecision)
             // ใช้ขนาด collider จริง ไม่ใช่ค่า default 0.5 ที่ทำให้หลบเฉพาะกระสุนเข้ากลางตัวเป๊ะ ๆ
@@ -360,7 +431,9 @@ namespace TopDownTacticalAI.Core
             _blackboard.MaxAttackRange = MaxAttackRange;
             _blackboard.RetreatHealthThreshold = RetreatHealthThreshold;
             _blackboard.CriticalRetreatHealthThreshold = CriticalRetreatHealthThreshold;
+            _blackboard.TankLeashRange = HealerThreatRange; // Tank duty leash — ห่าง healer เกินนี้ไม่ไล่ตาม
             _blackboard.HealRange = HealRange;
+            _blackboard.AllyAwarenessRadius = AllyAwarenessRadius;
             _blackboard.HealWorthThreshold = HealWorthThreshold;
             _blackboard.TankHealThreshold = TankHealThreshold;
             _blackboard.CriticalAllyHealthThreshold = CriticalAllyHealthThreshold;
@@ -421,6 +494,10 @@ namespace TopDownTacticalAI.Core
                     _playerMana = playerObj.GetComponent<Player.PlayerMana>();
             }
 
+            // ระบบนำทาง Hybrid: state ที่เดินไกลจะสั่งผ่านตัวนี้แทนการเขียน transform เอง
+            // (ตรวจ NavMesh จริงใน Start — ถ้าไม่มี mesh ในฉาก จะ fallback เป็น steering เดิมอัตโนมัติ)
+            _mover = new AgentPathMover(transform, ObstacleMask, PersonalSpace);
+
             // Register States
 
             // คำนวณระยะลาดตระเวนให้เหมาะกับขนาดแมพจริง ถ้าเปิด AutoSizePatrolFromMap และมี MapBounds อยู่ในฉาก
@@ -432,9 +509,9 @@ namespace TopDownTacticalAI.Core
                 effectivePatrolRadius = Mathf.Min(bounds.Size.x, bounds.Size.y) * 0.45f;
             }
 
-            _stateMachine.RegisterState(new PatrolState(transform, _blackboard, PatrolWaypoints, ObstacleMask, PatrolSpeed, patrolRadius: effectivePatrolRadius, coveragePointCount: PatrolPointCount, personalSpace: PersonalSpace));
-            _stateMachine.RegisterState(new ChaseState(transform, _blackboard, _memory.TargetMemoryData, ChaseSpeed, ObstacleMask, flankRadius: FlankRadius, personalSpace: PersonalSpace, weights: ScoringWeights));
-            _searchState = new Search.SearchState(transform, _blackboard, SearchSpeed, SearchWanderRadius, ObstacleMask, _memory.TargetMemoryData, SearchPursuitOvershoot, MaxAlertDuration, PersonalSpace);
+            _stateMachine.RegisterState(new PatrolState(transform, _blackboard, PatrolWaypoints, ObstacleMask, PatrolSpeed, patrolRadius: effectivePatrolRadius, coveragePointCount: PatrolPointCount, personalSpace: PersonalSpace, mover: _mover));
+            _stateMachine.RegisterState(new ChaseState(transform, _blackboard, _memory.TargetMemoryData, ChaseSpeed, ObstacleMask, flankRadius: FlankRadius, personalSpace: PersonalSpace, weights: ScoringWeights, mover: _mover));
+            _searchState = new Search.SearchState(transform, _blackboard, SearchSpeed, SearchWanderRadius, ObstacleMask, _memory.TargetMemoryData, SearchPursuitOvershoot, MaxAlertDuration, PersonalSpace, _mover);
             _stateMachine.RegisterState(_searchState);
             _stateMachine.RegisterState(new Alert.SuspiciousState(transform, _blackboard));
             _stateMachine.RegisterState(new CombatState(transform, _blackboard, _aim, _shoot, _reload, ObstacleMask, MaxAttackRange, PreferredMinRange, personalSpace: PersonalSpace));
@@ -444,15 +521,22 @@ namespace TopDownTacticalAI.Core
             // ── State กลุ่มเอาชีวิตรอด + สนับสนุน (§18/§19/§14) ──
             // Retreat/SeekHeal ลงทะเบียนให้ทุกตัว (ใครเลือดน้อยก็ถอยได้)
             _stateMachine.RegisterState(new Support.RetreatState(transform, _blackboard, RetreatSpeed, ObstacleMask, DangerRange * 2f));
-            _stateMachine.RegisterState(new Support.SeekHealState(transform, _blackboard, ObstacleMask, RetreatSpeed * 0.8f));
+            _stateMachine.RegisterState(new Support.SeekHealState(transform, _blackboard, ObstacleMask, RetreatSpeed * 0.8f, _mover));
 
-            // HealAlly ลงทะเบียนเฉพาะ Healer — ตัวอื่นไม่มีทางเข้า state นี้อยู่แล้ว
+            // HealAlly + FollowAlly ลงทะเบียนเฉพาะ Healer — ตัวอื่นไม่มีทางเข้า state นี้อยู่แล้ว
             // (TacticalDecision จะเสนอก็ต่อเมื่อ blackboard.IsHealerRole เท่านั้น)
             if (Role == EnemyRole.Support)
+            {
                 _stateMachine.RegisterState(new Support.HealAllyState(
                     transform, _blackboard, HealPerSecond, HealRange,
                     DangerRange * 1.5f, CoverMoveSpeed, ObstacleMask,
-                    PlayerBulletMask, HealBeam));
+                    PlayerBulletMask, HealBeam, mover: _mover));
+
+                // เดินตามเพื่อนเตรียมพร้อมฮีล — เร็วพอตามขบวน (ChaseSpeed หลัง preset Support ×0.7)
+                _stateMachine.RegisterState(new Support.FollowAllyState(
+                    transform, _blackboard, _mover, ChaseSpeed, ObstacleMask,
+                    personalSpace: PersonalSpace));
+            }
 
             // ProtectHealer / PeelAlly ลงทะเบียนเฉพาะ Tank (§2/§8/§10)
             // — บทบาทอื่นไม่มีหน้าที่นี้ TacticalDecision จะไม่เสนอ
@@ -469,7 +553,8 @@ namespace TopDownTacticalAI.Core
             if (Role == EnemyRole.Flanker)
                 _stateMachine.RegisterState(new Support.FlankState(
                     transform, _blackboard, ChaseSpeed, MaxAttackRange,
-                    PreferredMinRange, ObstacleMask, _shoot, MaxAttackRange, _reload));
+                    PreferredMinRange, ObstacleMask, _shoot, MaxAttackRange, _reload,
+                    personalSpace: PersonalSpace));
 
             _stateMachine.ChangeState(EnemyState.Patrol);
         }
@@ -488,17 +573,26 @@ namespace TopDownTacticalAI.Core
             if (Tactical.GroupAI.Instance != null)
                 Tactical.GroupAI.Instance.Register(transform);
 
+            // ตรวจ NavMesh ของฉากนี้ (ต้องเป็น Start ไม่ใช่ Awake — NavMesh data อาจพร้อมหลัง Awake)
+            // ถ้าไม่มี mesh จะไม่ทำอะไรเลย — ทุก state เดินด้วย steering เหมือนเดิม
+            _mover?.Initialize();
+
             // ตำแหน่งเกิดถือเป็นตำแหน่งปลอดภัยจุดแรก (ถ้าไม่ซ้อนกำแพงตั้งแต่ต้น)
             _lastSafePosition = transform.position;
             _hasSafePosition = !IsBodyOverlappingObstacle();
+            _lastVelocityPos = transform.position;
         }
 
         private void OnDestroy()
         {
-            if (Tactical.GroupAI.Instance != null)
-                Tactical.GroupAI.Instance.Unregister(transform);
+            // Guard ทั้งหมด: log พบ NRE ตอนออกจาก Play/ปิดฉาก (บางเคส _blackboard ยังไม่ถูกสร้าง
+            // หรือ GroupAI ถูกทำลายพร้อมกัน) — OnDestroy ต้องไม่โยน exception แม้สถานะไม่ครบ
+            var group = Tactical.GroupAI.Instance;
+            if (group != null)
+                group.Unregister(transform);
 
-            if (_blackboard.CurrentCover != null && _blackboard.CurrentCover.TryGetComponent(out CoverPoint cp))
+            var bb = _blackboard;
+            if (bb != null && bb.CurrentCover != null && bb.CurrentCover.TryGetComponent(out CoverPoint cp))
                 cp.Release();
 
             if (_health != null)
@@ -578,13 +672,61 @@ namespace TopDownTacticalAI.Core
         /// <summary>
         /// เรียกจาก GroupAI.EmitNoise เมื่อได้ยินเสียงผู้เล่น (เดิน/วิ่ง/ยิงปืน) ในระยะ
         /// ต่างจาก ReceiveAlert ตรงที่ไม่รู้ทิศทางที่แน่ชัด (แค่รู้ว่าเสียงมาจากตรงไหน)
+        ///
+        /// Gradient Awareness (ตามระยะจากจุดเกิดเสียง):
+        /// - ใกล้จุดยิง → บันทึกทันที ความมั่นใจ ~1.0 ("รู้เลยว่าอยู่ตรงนั้น")
+        /// - ไกลออกไป → หน่วงเวลาช้าลง (สูงสุด ~0.8 วิ) + ความมั่นใจลดเหลือ ~0.25 ("เสียงไกล ๆ แค่อาจจะอยู่แถวนั้น")
+        /// - ถ้ามีความจำที่ชัดกว่าอยู่แล้ว (เห็นเอง/เพื่อนแจ้ง) ไม่เขียนทับ
         /// </summary>
-        public void ReceiveNoise(Vector2 noisePosition)
+        public void ReceiveNoise(Vector2 noisePosition, float noiseRadius)
         {
             // เห็นผู้เล่นด้วยตาตัวเองอยู่แล้ว ไม่ต้องสนใจเสียง
             if (_blackboard.CanSeeTarget) return;
 
-            _memory.RecordSighting(noisePosition, Vector2.zero);
+            float distance = Vector2.Distance(transform.position, noisePosition);
+            float t = noiseRadius > 0.01f ? Mathf.Clamp01(distance / noiseRadius) : 0f;
+
+            // ความมั่นใจ: จุดเกิดเสียง = 1.0 → ขอบเขต = 0.25 (ลดแบบเส้นตรงตามระยะ)
+            float confidence = Mathf.Lerp(1f, 0.25f, t);
+
+            // หน่วงเวลา: ใกล้ = รู้ทันที → ไกล = ช้าสุด NoiseMaxDelay วินาที (เสียงเดินทาง/ตีความช้าลง)
+            float delay = Mathf.Lerp(0f, NoiseMaxDelay, t);
+
+            if (delay <= 0f)
+            {
+                TryRecordNoise(noisePosition, confidence);
+            }
+            else if (_pendingNoiseTime <= 0f || confidence >= _pendingNoiseConf)
+            {
+                // เสียงใหม่ที่ "มั่นใจกว่า" (หรือยังไม่มีค้างอยู่) ค่อยเข้าคิวแทน
+                // กันเสียงไกล ๆ ที่ช้ากว่า มาทับเสียงใกล้ ๆ ที่กำลังเดินทางอยู่
+                _pendingNoisePos = noisePosition;
+                _pendingNoiseConf = confidence;
+                _pendingNoiseTime = delay;
+            }
+        }
+
+        /// <summary>บันทึกเสียงที่ได้ยิน — เฉพาะเมื่อความจำปัจจุบันชัดกว่าเสียงนี้ (กันเขียนทับข้อมูลดีกว่า)</summary>
+        private void TryRecordNoise(Vector2 position, float confidence)
+        {
+            if (_blackboard.HasMemory && _blackboard.MemoryConfidence >= confidence)
+                return; // จำได้ชัดกว่าอยู่แล้ว (เห็นเอง/เพื่อนแจ้ง/เสียงใกล้กว่า) — ไม่ต้องเขียนทับ
+            _memory.RecordSighting(position, Vector2.zero, confidence);
+        }
+
+        /// <summary>
+        /// รับรายงานจุดที่เพื่อน "เห็นด้วยตาตอนนี้" ผ่าน GroupAI.SpotPlayer (รายงานต่อเนื่อง)
+        /// confidence ต่ำกว่าสายตาตัวเอง (SpotConfidence) — ใช้เป็นข้อมูลประกอบ ไม่ใช่ตำแหน่งแน่นอน
+        /// ถ้าเห็นเองอยู่แล้ว หรือความจำตัวเองชัดกว่า → ไม่ทำอะไร (กันเขียนทับข้อมูลที่ดีกว่า)
+        /// </summary>
+        public void ReceiveSpotting(Vector2 position, Vector2 direction)
+        {
+            if (_blackboard.CanSeeTarget) return;                          // เห็นเองอยู่แล้ว
+            if (_blackboard.MemoryConfidence >= SpotConfidence) return;    // จำได้ชัดพอแล้ว (เช่นเพิ่งเห็นเอง/เพื่อนแจ้งก่อนหน้า)
+
+            _memory.RecordSighting(position, direction, SpotConfidence);
+            // ใส่ทิศทางเข้า TargetMemory ด้วย — ตอนเข้า Search จะได้เดาทิศต่อจากข้อมูลเพื่อนได้
+            _memory.TargetMemoryData.SeedFromExternalIntel(position, direction);
         }
 
         private void Update()
@@ -638,16 +780,40 @@ namespace TopDownTacticalAI.Core
                 // TacticalDecision (ถอยแล้วมีประโยชน์ไหม) และ HealAllyState (มีคนรอฮีลไหม)
                 if (Tactical.GroupAI.Instance != null)
                 {
-                    Transform healer = Tactical.GroupAI.Instance.FindNearestHealer(transform.position, float.MaxValue);
+                    // หา healer เฉพาะเมื่อตัวนี้ "จะใช้ข้อมูล healer จริง" —
+                    // เลือดต่ำกว่าเกณฑ์ถอย / เป็น Tank (ProtectHealer ใช้ตำแหน่ง healer) / กำลังอยู่ในสถานะที่พึ่ง healer
+                    // (ของเดิมเรียกทุกตัวทุกเฟรม = O(N) walk + TryGetComponent เปล่า ๆ สำหรับบทบาทที่ไม่เคยใช้)
+                    bool needsHealer =
+                        _blackboard.SelfHealthPercent <= RetreatHealthThreshold
+                        || _blackboard.IsTankRole
+                        || _stateMachine.CurrentStateType == EnemyState.Retreat
+                        || _stateMachine.CurrentStateType == EnemyState.SeekHeal
+                        || _stateMachine.CurrentStateType == EnemyState.ProtectHealer;
+
+                    Transform healer = needsHealer
+                        ? Tactical.GroupAI.Instance.FindNearestHealer(transform.position, HealerLeashRange)
+                        : null;
                     _blackboard.HealerTransform = healer;
                     _blackboard.HealerAvailable = healer != null;
                     _blackboard.HealerDistance = healer != null
                         ? Vector2.Distance(transform.position, healer.position)
                         : float.MaxValue;
 
-                    // ตรวจเพื่อนบาดเจ็บเฉพาะ healer — ตัวอื่นไม่จำเป็นต้องรู้ (ประหยัดงาน)
+                    // มีเพื่อนบาดเจ็บ — healer เท่านั้น (ประหยัดงาน)
+                    // เกณฑ์ไม่ใช่ค่าคงที่ 80% อีกต่อไป: ถ้าผู้เล่นยังเห็นอยู่ (กำลังปะทะ) → ไวขึ้น 5% (85%)
+                    // เพื่อให้ healer กลับมาฮีลเร็วขึ้นระหว่างต่อสู้ — สงบสุข = 80% เดิม
+                    // สำคัญ: เกณฑ์ที่ใช้ "เข้าสู่ HealAlly" กับ "เลือกเป้าฮีล" ต้องเป็นค่าเดียวกัน
+                    // จึงเก็บลง Blackboard.EffectiveHealWorthThreshold ให้ HealAllyState อ่านด้วย
+                    float healWorthThreshold = _blackboard.HealWorthThreshold;
+                    if (_blackboard.CanSeeTarget)
+                        healWorthThreshold = Mathf.Min(1f, healWorthThreshold + 0.05f);
+                    _blackboard.EffectiveHealWorthThreshold = healWorthThreshold;
+
                     _blackboard.WoundedAllyExists = _blackboard.IsHealerRole
-                        && Tactical.HealTargetScorer.HasWoundedAlly(transform, _blackboard.HealWorthThreshold);
+                        && Tactical.HealTargetScorer.HasWoundedAlly(
+                            transform, healWorthThreshold,
+                            // ระยะรับรู้เพื่อน = ใหญ่สุดระหว่าง HealRange×2 กับ Circle Vision (AllyAwarenessRadius)
+                            maxDistance: Mathf.Max(_blackboard.HealRange * 2f, _blackboard.AllyAwarenessRadius));
 
                     // ── Tank Protect/Peel triggers (§8/§9/§10/§21) ──
                     // ตรวจเฉพาะ Tank — หน้าที่ของตัวอื่นไม่เกี่ยว (ประหยัดงาน)
@@ -672,13 +838,27 @@ namespace TopDownTacticalAI.Core
                 Vector2 dir = ((Vector2)_blackboard.CurrentTarget.position - (Vector2)transform.position).normalized;
                 _memory.RecordSighting(_blackboard.CurrentTarget.position, dir);
 
+                // แจ้งตำแหน่งผู้เล่นให้ GroupAI ไว้ใช้เรียงลำดับ chaser เป็นมุมรอบผู้เล่น (2 assignments — ถูกมาก)
+                Tactical.GroupAI.Instance?.NotePlayerPosition(_blackboard.CurrentTarget.position);
+
+                // ── รายงานจุดที่เห็นให้เพื่อนต่อเนื่อง (ทุก SpotInterval) ──
+                // เพื่อนที่เสียสายตาไปแล้วยังพอตามต่อได้จากข้อมูลนี้ (confidence 0.8 = ข้อมูลประกอบ ไม่ใช่แน่นอน)
+                // ตัวที่เห็นเองอยู่แล้วจะถูก ReceiveSpotting ข้าม — ไม่เสียงาน ไม่เขียนทับข้อมูลดีกว่า
+                if (IsDue(ref _spotTimer, SpotInterval, dt))
+                {
+                    Tactical.GroupAI.Instance?.SpotPlayer(
+                        _blackboard.CurrentTarget.position, dir, transform, AlertShoutRadius);
+                }
+
                 if (!_wasVisibleLastFrame)
                 {
                     _alertAudio?.PlayAlert();
                     _blackboard.DeterminationScore += 15; // เจอผู้เล่นครั้งแรก -> ตั้งใจแล้ว!
 
-                    // เจอผู้เล่นครั้งแรก -> ตะโกนเรียกพวกในระยะได้ยิน เหมือนตอนโดนโจมตี
-                    Tactical.GroupAI.Instance?.BroadcastAlert(transform.position, AlertShoutRadius, _blackboard.CurrentTarget.position, transform);
+                    // เจอผู้เล่นครั้งแรก -> ตะโกนเรียกพวก "ทั้งทีม" (เหมือนตอนโดนโจมตี)
+                    // เมื่อ AlertWholeTeam = true → radius = ไม่จำกัด → ทุกตัวรู้ตำแหน่งทันทีแล้วไปอ้อมดัก
+                    float firstSightRadius = AlertWholeTeam ? float.MaxValue : AlertShoutRadius;
+                    Tactical.GroupAI.Instance?.BroadcastAlert(transform.position, firstSightRadius, _blackboard.CurrentTarget.position, transform);
                 }
             }
             else if (_wasVisibleLastFrame && _alertAudio != null)
@@ -690,6 +870,18 @@ namespace TopDownTacticalAI.Core
             _memory.Tick(dt);
             _reload.Tick(dt);
 
+            // เสียงที่หน่วงเวลาไว้ (gradient noise) — ครบกำหนดแล้วค่อยบันทึกเป็นความจำ
+            // (ระหว่างรอ ถ้าเห็นผู้เล่นเองก่อน เสียงนั้นจะถูกเพิกเฉยใน TryRecordNoise ตามเงื่อนไข)
+            if (_pendingNoiseTime > 0f)
+            {
+                _pendingNoiseTime -= dt;
+                if (_pendingNoiseTime <= 0f)
+                {
+                    _pendingNoiseTime = 0f;
+                    TryRecordNoise(_pendingNoisePos, _pendingNoiseConf);
+                }
+            }
+
             // 1.8) ประเมินภัยคุกคาม หลังรับรู้และจดจำเสร็จแล้ว
             //      คำนวณที่นี่แทนที่จะรอให้ถึงขั้น Combat เพราะระหว่างช่วงสงสัย
             //      หรือช่วงที่เพิ่งเสียสายตาไปหมาดๆ AI ก็ต้องรู้ว่าตัวเองเสี่ยงแค่ไหน
@@ -699,6 +891,29 @@ namespace TopDownTacticalAI.Core
                 _blackboard.ThreatLevel = Tactical.RiskEvaluation.EvaluateRisk(
                     _blackboard, _blackboard.DistanceToTarget, DangerRange, ScoringWeights);
             }
+
+            // 1.9) ตรวจกระสุนที่พุ่งเข้าหา — คำนวณครั้งเดียวที่นี่ แล้วแชร์ลง Blackboard
+            //      (TacticalDecision + HealAllyState อ่านจาก Blackboard แทนการยิง OverlapCircle เองทุกเฟรม)
+            //      Tank (CanDodge=false) ไม่ต้องเช็ค — ยืนบังกระสุนตามบทบาท (§29)
+            if (_blackboard.CanDodge)
+            {
+                if (IsDue(ref _bulletTimer, ScoringWeights.bulletDetectInterval, dt))
+                {
+                    _blackboard.BulletIncoming = Dodge.BulletDetector.IsBulletIncoming(
+                        transform.position, DodgeDetectRadius, PlayerBulletMask,
+                        out Vector2 bVel, out Vector2 bPos);
+                    _blackboard.BulletVelocity = bVel;
+                    _blackboard.BulletPosition = bPos;
+                }
+            }
+            else
+            {
+                _blackboard.BulletIncoming = false;
+            }
+
+            // ลดคูลดาวน์สแกนที่กำบัง (TacticalDecision จะสแกนใหม่เมื่อหมด)
+            if (_blackboard.CoverScanCooldown > 0f)
+                _blackboard.CoverScanCooldown -= dt;
 
             // Alert Phase: สะสม/ลดความสงสัยตามว่าเห็นผู้เล่นอยู่จริงไหม (ก่อนจะ "ยืนยัน" เข้าสู่ Combat/Chase/Cover เต็มตัว)
             if (_blackboard.CanSeeTarget)
@@ -710,6 +925,18 @@ namespace TopDownTacticalAI.Core
             else
             {
                 _blackboard.SuspicionLevel = Mathf.Clamp01(_blackboard.SuspicionLevel - dt / Mathf.Max(0.01f, SuspicionDecayTime));
+            }
+
+            // ── Peripheral Vision: รู้สึกได้แบบอ่อนๆ จากทรงกลมรอบตัว (มีคนอยู่ข้างหลัง/ข้าง ๆ แต่ยังเห็นไม่ชัด) ──
+            // สะสมความสงสัยช้ากว่าเห็นตรงๆ 3 เท่า + seed ความจำอ่อนๆ (conf 0.35)
+            // ผลลัพธ์: Suspicious จะหยุดหันไปจ้องทิศนั้น (ตามที่ขอ: "เริ่มรู้สึกว่ามีผู้เล่นอยู่ข้างหลัง")
+            if (_blackboard.PeripheralHit && !_blackboard.CanSeeTarget)
+            {
+                _blackboard.SuspicionLevel = Mathf.Clamp01(
+                    _blackboard.SuspicionLevel + dt / Mathf.Max(0.01f, SuspicionBuildTime * 3f));
+
+                if (_blackboard.MemoryConfidence < 0.35f)
+                    _memory.RecordSighting(_blackboard.PeripheralPosition, _blackboard.PeripheralDirection, 0.35f);
             }
 
             // ลืมผู้เล่นไปเต็มๆ แล้ว (กลับ Patrol) -> รีเซ็ตสถานะยืนยัน/สงสัยทั้งหมด เริ่มนับใหม่ถ้าเจออีกครั้ง
@@ -734,45 +961,66 @@ namespace TopDownTacticalAI.Core
                 _blackboard.ThreatLevel,
                 Mathf.Clamp01(dt * Mathf.Max(0.01f, ScoringWeights.threatSmoothingSpeed)));
 
-            // 3) ตัดสินใจ State ถัดไปด้วย Tactical Layer (ยังเป็นตัวตัดสินเงื่อนไขความถูกต้อง)
-            EnemyState proposedState = TacticalDecision.DecideNextState(
-                _blackboard,
-                transform.position,
-                PlayerBulletMask,
-                CoverMask,
-                ObstacleMask,
-                DangerRange,
-                CoverSearchRadius,
-                DodgeDetectRadius,
-                _stateMachine.CurrentStateType,
-                out string reason);
-
-            // 3.5) ให้คะแนนและตัดสินใจขั้นสุดท้ายด้วย AIActionScorer
-            //      - ตรวจ Override กรณีวิกฤต (ความอยู่รอดมาก่อนแผนปกติ)
-            //      - ใช้ Hysteresis กันการสลับ State รัวๆ เมื่อคะแนนใกล้กัน
-            //      - ยังคงกันไม่ให้ State ที่สำคัญน้อยกว่ามาขัดจังหวะ Dodge ที่กำลังทำงานอยู่
+            // 3) ตัดสินใจ State ถัดไป — 3 ทาง:
+            //    a) กำลัง dodge → ล็อกแผน ไม่ต้องคำนวณอะไรเลย (ข้ามทั้ง 2 ชั้น)
+            //    b) ครบคูลดาวน์ decisionInterval → คำนวณใหม่ + เก็บลง cache
+            //    c) ยังไม่ครบ → ใช้ผลลัพธ์จาก cache (เฟรมที่ข้อมูลไม่เปลี่ยน = ไม่ต้องคิดซ้ำ — ประหยัดครึ่งหนึ่งที่ 60fps)
             bool isDodgingNow = _stateMachine.CurrentStateType == EnemyState.Dodge && _blackboard.IsDodging;
 
             EnemyState decided;
             float decidedScore;
             string scorerReason;
+            string reason = null;
 
             if (isDodgingNow)
             {
                 // กำลังหลบอยู่ ห้ามให้อะไรก็ตามมาแทรกจนกว่าจะหลบเสร็จ
                 decided = _stateMachine.CurrentStateType;
                 decidedScore = AIActionScorer.ScoreAction(decided, _blackboard, ScoringWeights);
-                scorerReason = "กำลังหลบกระสุนอยู่ — ล็อกแผนไว้จนกว่าจะหลบเสร็จ";
+                scorerReason = _captureReasons ? "กำลังหลบกระสุนอยู่ — ล็อกแผนไว้จนกว่าจะหลบเสร็จ" : null;
+
+                // ออกจาก dodge → ตัดสินใหม่ทันทีเฟรมถัดไป (ไม่ต้องรอคูลดาวน์)
+                _decisionTimer = ScoringWeights.decisionInterval;
             }
-            else
+            else if (IsDue(ref _decisionTimer, ScoringWeights.decisionInterval, dt))
             {
+                EnemyState proposedState = TacticalDecision.DecideNextState(
+                    _blackboard,
+                    transform.position,
+                    PlayerBulletMask,
+                    CoverMask,
+                    ObstacleMask,
+                    DangerRange,
+                    CoverSearchRadius,
+                    DodgeDetectRadius,
+                    _stateMachine.CurrentStateType,
+                    out reason,
+                    buildReason: _captureReasons);
+
+                // 3.5) ให้คะแนนและตัดสินใจขั้นสุดท้ายด้วย AIActionScorer
+                //      - ตรวจ Override กรณีวิกฤต (ความอยู่รอดมาก่อนแผนปกติ)
+                //      - ใช้ Hysteresis กันการสลับ State รัวๆ เมื่อคะแนนใกล้กัน
                 decided = AIActionScorer.SelectAction(
                     _blackboard,
                     ScoringWeights,
                     _stateMachine.CurrentStateType,
                     proposedState,
                     out decidedScore,
-                    out scorerReason);
+                    out scorerReason,
+                    buildReason: _captureReasons);
+
+                // เก็บผลลัพธ์ไว้ใช้ซ้ำในเฟรมที่คูลดาวน์ยังไม่ครบ
+                _cachedDecided = decided;
+                _cachedDecidedScore = decidedScore;
+                _cachedScorerReason = scorerReason;
+                _cachedReason = reason;
+            }
+            else
+            {
+                decided = _cachedDecided;
+                decidedScore = _cachedDecidedScore;
+                scorerReason = _cachedScorerReason;
+                reason = _cachedReason;
             }
 
             _blackboard.CurrentActionScore = decidedScore;
@@ -780,16 +1028,49 @@ namespace TopDownTacticalAI.Core
 
             // เก็บเหตุผลที่อ่านง่ายสำหรับ Debug HUD
             // ถ้า scorer มีเหตุผลของตัวเอง (เช่น ตัดสินใจไม่เปลี่ยนแผน) ให้ใช้เหตุผลนั้น
-            _lastDecisionReason = string.IsNullOrEmpty(scorerReason) ? reason : scorerReason;
+            // (ตอนไม่มี Debug HUD ทั้งคู่เป็น null → เก็บเป็น "" กัน null ไหลเข้า HUD)
+            _lastDecisionReason = string.IsNullOrEmpty(scorerReason) ? (reason ?? "") : scorerReason;
+
+            // ── State Dwell gate: ห้ามสลับ state เร็วกว่า StateDwellTime (ยกเว้นสถานะเอาชีวิตรอด) ──
+            _stateDwellTimer -= dt;
+            if (decided != _stateMachine.CurrentStateType
+                && _stateDwellTimer > 0f
+                && !AIActionScorer.IsSurvivalState(decided))
+            {
+                decided = _stateMachine.CurrentStateType; // ยังไม่ครบ dwell → อยู่ state เดิมต่อ
+            }
 
             if (decided != _stateMachine.CurrentStateType)
             {
+                EnemyState prevState = _stateMachine.CurrentStateType;
                 _stateMachine.ChangeState(decided);
+                _mover.OnStateChanged(decided); // สั่ง Agent เงียบถ้า state ใหม่ไม่ใช่ path-eligible
+                _stateDwellTimer = StateDwellTime;
+
+                // log ทุกครั้งที่เปลี่ยน state (ปริมาณน้อย — เฉพาะตอนเปลี่ยน) ใช้วิเคราะห์จาก Editor.log
+                Debug.Log($"[AI] {gameObject.name}: {prevState} → {decided} | {_lastDecisionReason}", this);
             }
 
             // 4) รัน Tick ของ State ปัจจุบัน
             _positionBeforeStateTick = transform.position;
+            _mover.BeginFrame();
             _stateMachine.Tick(dt);
+            _mover.EndFrame();
+
+            // ── Cooperative Waiting (ส่วนที่ 4): เพื่อนที่เป็นเป้าฮีลชะลอตัว ──
+            // damping จุดเดียวหลัง State.Tick — ครอบคลุมทุก state ที่เขียนตำแหน่ง โดยไม่ต้องแก้ทีละ state
+            // ยกเว้นตอน "หลบกระสุน" (เอาชีวิตรอดมาก่อนการรอฮีล — IsDodging ไม่ถูกแตะ)
+            if (IsHealPatient && !_blackboard.IsDodging)
+            {
+                Vector2 before = _positionBeforeStateTick;
+                Vector2 after = transform.position;
+                Vector2 delta = after - before;
+                if (delta.sqrMagnitude > 0.000001f)
+                {
+                    Vector2 damped = before + delta * PatientSpeedFactor;
+                    transform.position = new Vector3(damped.x, damped.y, transform.position.z);
+                }
+            }
 
             // สะสมคะแนนความพยายามระหว่างที่กำลังไล่ล่า/ค้นหา/ต่อสู้อยู่ (แสดงว่า AI ยังไม่ยอมแพ้)
             if (_stateMachine.CurrentStateType == EnemyState.Chase
@@ -801,14 +1082,25 @@ namespace TopDownTacticalAI.Core
 
             // กันมอนทะลุกำแพงแบบรวมศูนย์: ทุก State อาจขยับ Transform โดยตรง
             // จึงตรวจการเคลื่อนที่ด้วย Collider จริงหลัง State ทำงานทุกเฟรม
-            ResolveObstacleCollision();
+            // ยกเว้นเฟรมที่ NavMeshAgent เป็นคนคุมตำแหน่ง (IsPathActive) — navmesh ถูก bake
+            // จากกำแพง/กรอบแมพเดียวกันอยู่แล้ว การ clamp ตามจะแย่งกับ agent ทำให้หลุด mesh/สั่น
+            if (!_mover.IsPathActive)
+            {
+                ResolveObstacleCollision();
 
-            // กันหลุดกรอบแมพ: ไม่ว่า State ไหนจะขยับตำแหน่งไปเท่าไหร่ ก็ดึงกลับเข้ากรอบเสมอ
-            Vector2 clampedPos = MapBounds.Clamp(transform.position);
-            transform.position = new Vector3(clampedPos.x, clampedPos.y, transform.position.z);
+                // กันหลุดกรอบแมพ: ไม่ว่า State ไหนจะขยับตำแหน่งไปเท่าไหร่ ก็ดึงกลับเข้ากรอบเสมอ
+                Vector2 clampedPos = MapBounds.Clamp(transform.position);
+                transform.position = new Vector3(clampedPos.x, clampedPos.y, transform.position.z);
 
-            // กันสุดท้าย: มอน "อยู่ในกำแพงไม่ได้แม้แต่เฟรมเดียว" — ถ้าซ้อน ดีดกลับตำแหน่งปลอดภัยล่าสุด
-            EnsureNotInsideObstacle();
+                // กันสุดท้าย: มอน "อยู่ในกำแพงไม่ได้แม้แต่เฟรมเดียว" — ถ้าซ้อน ดีดกลับตำแหน่งปลอดภัยล่าสุด
+                EnsureNotInsideObstacle();
+            }
+            else
+            {
+                // ตำแหน่งอยู่บน navmesh = พิสูจน์แล้วว่าปลอดภัย — อัปเดตจุดดีดกลับไว้ใช้ตอน fallback ทีหลัง
+                _lastSafePosition = transform.position;
+                _hasSafePosition = true;
+            }
 
             // 5) อัปเดต Animation
             if (_animController != null)
@@ -817,6 +1109,13 @@ namespace TopDownTacticalAI.Core
                 _animController.SetSpeed(_movementAnim.CalculateSpeed(transform.position, dt));
                 _animController.SetAiming(_stateMachine.CurrentStateType == EnemyState.Combat || _stateMachine.CurrentStateType == EnemyState.Cover);
             }
+
+            // อัปเดตความเร็วโดยประมาณ = ผลต่างตำแหน่งต่อเฟรม (รวมทั้งเขียนโดย state และโดย NavMeshAgent)
+            Vector2 nowPos = transform.position;
+            float velDt = Mathf.Max(dt, 0.0001f);
+            Vector2 vel = (nowPos - _lastVelocityPos) / velDt;
+            VelocityEstimate = vel.sqrMagnitude > 2500f ? vel.normalized * 50f : vel; // กันค่าทะลุผิดธรรมชาติ (กระพริบ/วาร์ป)
+            _lastVelocityPos = nowPos;
         }
 
         private void FixedUpdate()
@@ -825,8 +1124,11 @@ namespace TopDownTacticalAI.Core
             _positionBeforeFixedTick = transform.position;
             _stateMachine.FixedTick(Time.fixedDeltaTime);
             _positionBeforeStateTick = _positionBeforeFixedTick;
-            ResolveObstacleCollision();
-            EnsureNotInsideObstacle();
+
+            // เดิมเรียก ResolveObstacleCollision + EnsureNotInsideObstacle ตรงนี้ด้วย (ทุก ๆ 50 เฟรม/วิ)
+            // ตัดออกเพราะ 1) ทุก FixedTick ของ state เป็นว่างเปล่า — ไม่มีใครเขียน position ใน fixed
+            // 2) ทำงานซ้ำกับ Update = ค่าใช้จ่าย raycast + allocation (RaycastHit2D[8]/Collider2D[8]) เปล่า ๆ
+            // (ถ้ามี state ในอนาคตขยับ position ภายใน FixedTick ให้คืนสองบรรทัดนี้มา)
         }
 
         /// <summary>
@@ -834,9 +1136,29 @@ namespace TopDownTacticalAI.Core
         ///
         /// หลักการ (§50): ใช้ตำแหน่งผู้เล่นที่ "ตัวเองรับรู้ได้จริง" — เห็นด้วยตา หรือจำจากที่เพื่อนแจ้ง
         /// ไม่ใช้ตำแหน่งผู้เล่นจริงแบบโกง
+        ///
+        /// ชั้นใหม่: Call-for-Help (GroupAI distress) มาก่อน — ฝ่ายที่ถูกคุกคาม "ประกาศเอง"
+        /// ทำให้ Tank ตอบสนองได้แม้ตัวเองจำ/เห็นผู้เล่นไม่ได้เลย (แบบเดิม perception-gated มักพลาด)
         /// </summary>
         private void EvaluateTankTriggers(Transform healer)
         {
+            // ── 0) สัญญาณขอความช่วยเหลือเชิงรุก (อายุ 3 วิ) ──
+            const float distressValidTime = 3f;
+            Transform distressSource = null; // ต้อง initialize ก่อน — short-circuit && ทำให้ out ไม่ถูก assign เสมอ
+            bool hasDistress = Tactical.GroupAI.Instance != null
+                && Tactical.GroupAI.Instance.TryGetRecentDistress(distressValidTime, out distressSource, out _);
+
+            bool healerDistress = hasDistress && healer != null && distressSource == healer;
+
+            // เพื่อนที่ขอความช่วยเหลือกำลังหนีอยู่จริง (Retreat/SeekHeal) → ถือว่าถูกไล่
+            bool retreatingDistress = false;
+            if (hasDistress && distressSource != null && distressSource != healer
+                && distressSource.TryGetComponent(out EnemyBrain distressBrain))
+            {
+                EnemyState ds = distressBrain.GetCurrentState();
+                retreatingDistress = ds == EnemyState.Retreat || ds == EnemyState.SeekHeal;
+            }
+
             // ตำแหน่งผู้เล่นที่รับรู้ได้: เห็นตอนนี้ > จำจากครั้งก่อน
             bool knowPlayer = false;
             Vector2 knownPlayerPos = Vector2.zero;
@@ -854,22 +1176,24 @@ namespace TopDownTacticalAI.Core
 
             if (!knowPlayer || healer == null)
             {
-                _blackboard.HealerThreatened = false;
-                _blackboard.RetreatingAllyUnderThreat = false;
-                _blackboard.RetreatingAllyTransform = null;
+                // ไม่รู้ตำแหน่งผู้เล่น — ยังตอบสนองจาก distress ได้ (จุดที่แบบเดิม "มืดสนิท" ทั้งที่เพื่อนขอความช่วยเหลือ)
+                _blackboard.HealerThreatened = healerDistress;
+                _blackboard.RetreatingAllyUnderThreat = retreatingDistress;
+                _blackboard.RetreatingAllyTransform = retreatingDistress ? distressSource : null;
                 return;
             }
 
-            // ── §9: HealerThreat — ผู้เล่น "มองเห็น healer" + "ใกล้พอ" = คุกคาม ──
+            // ── §9: HealerThreat — ผู้เล่น "มองเห็น healer" + "ใกล้พอ" = คุกคาม (หรือ healer ขอความช่วยเหลือเอง) ──
             float distPlayerToHealer = Vector2.Distance(knownPlayerPos, healer.position);
             bool playerSeesHealer = RaycastDetector.HasLineOfSight(
                 knownPlayerPos, healer.position, ObstacleMask, distPlayerToHealer + 1f);
 
-            _blackboard.HealerThreatened = playerSeesHealer && distPlayerToHealer <= HealerThreatRange;
+            _blackboard.HealerThreatened = healerDistress || (playerSeesHealer && distPlayerToHealer <= HealerThreatRange);
 
             // ── §21: เพื่อนกำลังถอย (เลือดต่ำ) และผู้เล่นอยู่ใกล้มัน = กำลังถูกไล่ ──
-            _blackboard.RetreatingAllyUnderThreat = false;
-            _blackboard.RetreatingAllyTransform = null;
+            // เริ่มจาก distress (ถ้ามี) แล้วให้การสแกนหา "เพื่อนที่ใกล้ที่สุด" ทับได้
+            _blackboard.RetreatingAllyUnderThreat = retreatingDistress;
+            _blackboard.RetreatingAllyTransform = retreatingDistress ? distressSource : null;
 
             if (Tactical.GroupAI.Instance == null) return;
 
@@ -1004,14 +1328,13 @@ namespace TopDownTacticalAI.Core
                 layerMask = ObstacleMask,
                 useTriggers = false
             };
-            var hits = new Collider2D[8];
-            int count = _bodyCollider.Overlap(filter, hits);
+            int count = _bodyCollider.Overlap(filter, _bodyOverlapHits);
 
             for (int i = 0; i < count; i++)
             {
-                if (hits[i] == null || hits[i] == _bodyCollider) continue;
+                if (_bodyOverlapHits[i] == null || _bodyOverlapHits[i] == _bodyCollider) continue;
 
-                ColliderDistance2D separation = Physics2D.Distance(_bodyCollider, hits[i]);
+                ColliderDistance2D separation = Physics2D.Distance(_bodyCollider, _bodyOverlapHits[i]);
                 // ซ้อนลึกเกินกว่า 0.1 หน่วย = "อยู่ในกำแพงจริง" (แค่แตะผิวไม่นับ)
                 if (separation.isOverlapped && separation.distance < -0.05f) return true;
             }
@@ -1041,23 +1364,22 @@ namespace TopDownTacticalAI.Core
             // พร้อมวงกลมขนาดเท่าตัวแทน จึงจะจับกำแพงที่ "ถูกข้าม" ได้ครบ
             if (moveDistance > 0.0001f)
             {
-                var sweepHits = new RaycastHit2D[8];
                 int hitCount = Physics2D.CircleCast(
                     prevPos,
                     GetBodyRadius(),
                     movement / moveDistance,
                     filter,
-                    sweepHits,
+                    _sweepHits,
                     moveDistance + ObstacleSkinWidth);
 
                 RaycastHit2D nearest = default;
                 bool found = false;
                 for (int i = 0; i < hitCount; i++)
                 {
-                    if (sweepHits[i].collider == null || sweepHits[i].collider == _bodyCollider) continue;
-                    if (!found || sweepHits[i].distance < nearest.distance)
+                    if (_sweepHits[i].collider == null || _sweepHits[i].collider == _bodyCollider) continue;
+                    if (!found || _sweepHits[i].distance < nearest.distance)
                     {
-                        nearest = sweepHits[i];
+                        nearest = _sweepHits[i];
                         found = true;
                     }
                 }
@@ -1078,7 +1400,7 @@ namespace TopDownTacticalAI.Core
             // บั๊กเดิม: ดันตาม "ผิวที่ใกล้ที่สุด" ไม่จำกัดระยะ พอตัวซ้อนลึกเข้าไปในกำแพง
             // ผิวที่ใกล้ที่สุดกลายเป็น "ฟากตรงข้าม" → โดนดันข้ามกำแพงไปอีกฟาก = วาร์ป
             // วิธีแก้: เลือกดันไปทาง "ที่ที่เพิ่งมาจาก" (prevPos) เสมอ และจำกัดระยะต่อเฟรม
-            var overlapHits = new Collider2D[8];
+            var overlapHits = _pushOutHits;
             int overlapCount = _bodyCollider.Overlap(filter, overlapHits);
             Vector2 totalPush = Vector2.zero;
 
@@ -1121,6 +1443,7 @@ namespace TopDownTacticalAI.Core
 
         public Blackboard GetBlackboard() => _blackboard;
         public EnemyState GetCurrentState() => _stateMachine != null ? _stateMachine.CurrentStateType : EnemyState.Patrol;
+        public AgentPathMover GetMover() => _mover;
 
         private string _lastDecisionReason = "";
 

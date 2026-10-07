@@ -36,6 +36,7 @@ namespace TopDownTacticalAI.DebugTools
         private LineRenderer _destinationLine;
         private LineRenderer _trailLine;
         private readonly List<Vector3> _trailPoints = new List<Vector3>();
+        private readonly List<Vector3> _pathBuffer = new List<Vector3>(16); // buffer เส้นทาง NavMesh (ไม่ allocate ใหม่ทุกเฟรม)
 
         private static readonly Dictionary<EnemyState, Color> StateColors = new Dictionary<EnemyState, Color>
         {
@@ -91,7 +92,10 @@ namespace TopDownTacticalAI.DebugTools
                 _trailLine.positionCount = 0;
         }
 
-        /// <summary>วาดเส้นตรงจากตัว AI ไปยัง Blackboard.CurrentDestination ที่ State ปัจจุบันตั้งใจจะไป</summary>
+        /// <summary>
+        /// วาดเส้นทางไปยังจุดหมาย — ถ้าศัตรูกำลังใช้ NavMesh (AgentPathMover) จะวาด "เส้นงอตามกำแพง"
+        /// จาก path corners จริง; ไม่งั้น (fallback steering) วาดเส้นตรงแบบเดิม
+        /// </summary>
         private void UpdateDestinationLine(Color stateColor)
         {
             // กันพัง: Blackboard ถูกสร้างใน EnemyBrain.Awake() ถ้าสคริปต์นั้นถูกปิดอยู่
@@ -111,9 +115,21 @@ namespace TopDownTacticalAI.DebugTools
                 return;
             }
 
-            _destinationLine.positionCount = 2;
-            _destinationLine.SetPosition(0, transform.position);
-            _destinationLine.SetPosition(1, destination);
+            // ลองใช้เส้นทาง NavMesh จริงก่อน (เห็นการอ้อมกำแพงชัดเจน — ใช้ตอนตรวจ Phase NavMesh)
+            // ไม่มีเส้นทาง/ไม่ได้โหมด navmesh → วาดเส้นตรงไปจุดหมายแบบเดิม
+            var mover = _brain.GetMover();
+            if (mover != null && mover.TryGetPathCorners(_pathBuffer))
+            {
+                _destinationLine.positionCount = _pathBuffer.Count;
+                for (int i = 0; i < _pathBuffer.Count; i++)
+                    _destinationLine.SetPosition(i, _pathBuffer[i]);
+            }
+            else
+            {
+                _destinationLine.positionCount = 2;
+                _destinationLine.SetPosition(0, transform.position);
+                _destinationLine.SetPosition(1, destination);
+            }
 
             Gradient gradient = new Gradient();
             gradient.SetKeys(

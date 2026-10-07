@@ -61,6 +61,14 @@ namespace TopDownTacticalAI.Support
                 ? (Vector2)_blackboard.CurrentTarget.position
                 : selfPos;
 
+            // ── Call-for-Help: กำลังหนีแต่ผู้เล่นยังเห็น/ยังอยู่ใกล้ → ประกาศให้ทีมรู้ ──
+            // Tank ตอบสนองผ่าน GroupAI.TryGetRecentDistress ได้โดยไม่ต้องเห็นผู้เล่นด้วยตาตัวเอง
+            if (_blackboard.CurrentTarget != null
+                && Vector2.Distance(selfPos, playerPos) < _playerAvoidDistance * 2f)
+            {
+                Tactical.GroupAI.Instance?.BroadcastDistress(_self, selfPos);
+            }
+
             Vector2 bestStep = ScoreRetreatRoutes(selfPos, healerPos, playerPos);
 
             if (bestStep.sqrMagnitude < 0.0001f)

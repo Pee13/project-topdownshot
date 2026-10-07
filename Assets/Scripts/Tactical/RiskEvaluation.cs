@@ -28,14 +28,6 @@ namespace TopDownTacticalAI.Tactical
         private const float WeightIsolation = 0.10f;
 
         /// <summary>
-        /// ประเมินภัยคุกคามจากข้อมูลใน Blackboard (ค่าเริ่มต้น ไม่ต้องส่ง weights)
-        /// </summary>
-        public static float EvaluateRisk(Blackboard blackboard, float distanceToTarget, float dangerRange)
-        {
-            return EvaluateRisk(blackboard, distanceToTarget, dangerRange, null);
-        }
-
-        /// <summary>
         /// ประเมินภัยคุกคามแบบปรับน้ำหนักได้
         /// </summary>
         public static float EvaluateRisk(Blackboard blackboard, float distanceToTarget, float dangerRange, AIScoringWeights weights)

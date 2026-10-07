@@ -23,9 +23,11 @@ namespace TopDownTacticalAI.Combat
             if (distance > maxRange) return false;
             if (!isAimed) return false;
 
-            // เช็ค Line of Sight ซ้ำอีกครั้ง ณ จังหวะยิงจริง (กันกรณีผู้เล่นเพิ่งหลบเข้าที่กำบังในเฟรมเดียวกัน)
-            if (!RaycastDetector.HasLineOfSight(selfPosition, targetPosition, obstacleMask, maxRange))
-                return false;
+            // หมายเหตุ: เดิมยิง raycast เช็ค LOS ซ้ำที่นี่ แต่ถูกตัดออก —
+            // `CanSeeTarget` ข้างบนถูก VisionSensor ตั้งค่าในเฟรมเดียวกันโดยยิง LOS ไปแล้ว
+            // (RaycastDetector.HasLineOfSight) การเช็คซ้ำจึงเป็นค่าใช้จ่ายเปล่า ๆ ทุกเฟรม × 6 states
+            // ข้อจำกัด: ถ้าตั้ง ScoringWeights.visionInterval > 0.1 ควรมีค่า LOS เก่าถึง 0.1 วิ
+            // — แนะนำให้คง visionInterval ≤ 0.1 เพื่อความแม่นยำของการยิง
 
             return true;
         }

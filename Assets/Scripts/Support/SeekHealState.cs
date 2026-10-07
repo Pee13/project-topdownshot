@@ -2,6 +2,7 @@ using UnityEngine;
 using TopDownTacticalAI.Core;
 using TopDownTacticalAI.Tactical;
 using TopDownTacticalAI.Utilities;
+using TopDownTacticalAI.Pathfinding;
 
 namespace TopDownTacticalAI.Support
 {
@@ -22,13 +23,15 @@ namespace TopDownTacticalAI.Support
         private readonly Blackboard _blackboard;
         private readonly LayerMask _obstacleMask;
         private readonly float _followSpeed;
+        private readonly AgentPathMover _mover;
 
-        public SeekHealState(Transform self, Blackboard blackboard, LayerMask obstacleMask, float followSpeed = 20f)
+        public SeekHealState(Transform self, Blackboard blackboard, LayerMask obstacleMask, float followSpeed = 20f, AgentPathMover mover = null)
         {
             _self = self;
             _blackboard = blackboard;
             _obstacleMask = obstacleMask;
             _followSpeed = followSpeed;
+            _mover = mover;
         }
 
         public void Enter() { }
@@ -45,15 +48,22 @@ namespace TopDownTacticalAI.Support
             // ถ้าหลุดระยะฮีล (healer ลงแดก/ถอยหนี) ให้เดินตามเบาๆ คงสถานะการฮีลไว้
             if (distance > _blackboard.HealRange)
             {
-                Vector2 dir = (healerPos - selfPos).normalized;
-                Vector2 steered = SteeringMovement.GetSteeredDirection(selfPos, dir, _obstacleMask, self: _self, personalSpace: 1.2f);
+                _blackboard.CurrentDestination = healerPos;
 
-                if (steered.sqrMagnitude > 0.0001f)
+                if (_mover != null)
                 {
-                    // เดินตาม healer ด้วยความเร็วจริง (เดิม 2 หน่วย/วิ = เดินริ้วรอยบนแมพใหญ่)
-                    _self.position = SteeringMovement.MoveWithCollisionCheck(
-                        _self, steered * (_followSpeed * deltaTime), _obstacleMask);
-                    _blackboard.CurrentDestination = healerPos;
+                    // เดินตาม healer ผ่านระบบนำทาง Hybrid (NavMesh อ้อมกำแพงถึง/ steering fallback)
+                    // arriveThreshold = ครึ่งหนึ่งของระยะฮีล — พอเข้าใกล้พอสมควรก็หยุด (ไม่ต้องเดินชนตัว)
+                    _mover.MoveTo(healerPos, deltaTime, _followSpeed,
+                        arriveThreshold: Mathf.Max(0.5f, _blackboard.HealRange * 0.5f));
+                }
+                else
+                {
+                    Vector2 dir = (healerPos - selfPos).normalized;
+                    Vector2 steered = SteeringMovement.GetSteeredDirection(selfPos, dir, _obstacleMask, self: _self, personalSpace: 1.2f);
+                    if (steered.sqrMagnitude > 0.0001f)
+                        _self.position = SteeringMovement.MoveWithCollisionCheck(
+                            _self, steered * (_followSpeed * deltaTime), _obstacleMask);
                 }
                 return;
             }

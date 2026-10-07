@@ -16,6 +16,25 @@ namespace TopDownTacticalAI.Tactical
 
         private readonly List<Transform> _activeEnemies = new List<Transform>();
 
+        // ── สัญญาณขอความช่วยเหลือเชิงรุก (Call-for-Help) ──
+        // ฝ่ายที่ "ถูกคุกคาม" (Healer โดนผู้เล่นเข้าใกล้/มีกระสุน, เพื่อนกำลังหนี) ประกาศเอง
+        // แทนที่ Tank จะต้อง "เดา" จากสายตาตัวเอง (แบบเดิม: จำผู้เล่นไม่ได้ = ไม่รู้เรื่องเลย)
+        // อ้างอิงมาตรฐานเกม top-down: ศัตรูแบ่งปันภัยคุกคามแบบ structured ไม่ใช่แค่ alert ตำแหน่ง (Killzone squad / AI controller pattern)
+        private Transform _distressSource;
+        private Vector2 _distressPosition;
+        private float _distressTime = float.NegativeInfinity;
+
+        // ตำแหน่งผู้เล่น "ล่าสุดที่ทีมรับรู้" — ใช้เรียงลำดับ chaser เป็นมุมรอบผู้เล่น (ไม่ใช่ลำดับ register)
+        private Vector2 _playerHint;
+        private bool _playerHintValid;
+
+        // buffer กลางของ GetActiveChaseIndex (ไม่ allocate ทุกเฟรม — single-threaded)
+        private static readonly List<Transform> s_chaserBuffer = new List<Transform>(8);
+        private static readonly List<float> s_chaserAngleBuffer = new List<float>(8);
+
+        // buffer กลางของ GetSearchSectorIndex — แยกจาก chaser buffer เพราะถูกเรียกคนละที่/คนละเฟรม
+        private static readonly List<Transform> s_searchBuffer = new List<Transform>(8);
+
         private void Awake()
         {
             // Singleton ปกติ: ถ้ามีตัวอื่นอยู่แล้วให้ทำลายตัวนี้ทิ้ง
@@ -130,14 +149,17 @@ namespace TopDownTacticalAI.Tactical
             }
         }
         /// <summary>
-        /// หาลำดับ (index) ของตัวนี้ในกลุ่ม "ที่กำลังไล่ล่าผู้เล่นอยู่จริงๆ" (Chase หรือ Combat เท่านั้น)
-        /// ใช้กำหนดว่าใครควรไล่ตรง ใครควรอ้อมไปดักอีกทาง (ดู Flanking.cs)
-        /// index 0 = ตัวหลักที่ไล่ตรง, index อื่นๆ = ให้อ้อมไปทางอื่น
+        /// หาลำดับ (index) ของตัวนี้ในกลุ่ม "ที่กำลังรบ/ไล่ล่าอยู่จริงๆ"
+        /// (Chase / Combat / Flank — Flanker ต้องนับด้วย ไม่งั้นหลุดจากวงล้อม)
+        ///
+        /// เรียงตาม "มุมรอบผู้เล่น" แทนลำดับ register: index คงที่ตามเรขาคณิต
+        /// ต่อให้ register/unregister กลางเกม บทบาทในวงล้อมจะไม่สลับกันมั่ว
+        /// (ถ้าไม่รู้ตำแหน่งผู้เล่น → ใช้ลำดับ register เดิม)
         /// </summary>
         public int GetActiveChaseIndex(Transform self, out int totalActiveChasers)
         {
-            int index = -1;
-            int count = 0;
+            s_chaserBuffer.Clear();
+            s_chaserAngleBuffer.Clear();
 
             foreach (var enemy in _activeEnemies)
             {
@@ -145,14 +167,150 @@ namespace TopDownTacticalAI.Tactical
                 if (!enemy.TryGetComponent(out EnemyBrain brain)) continue;
 
                 EnemyState state = brain.GetCurrentState();
-                if (state != EnemyState.Chase && state != EnemyState.Combat) continue;
+                if (state != EnemyState.Chase && state != EnemyState.Combat && state != EnemyState.Flank)
+                    continue;
 
-                if (enemy == self) index = count;
-                count++;
+                s_chaserBuffer.Add(enemy);
             }
 
-            totalActiveChasers = count;
-            return index;
+            totalActiveChasers = s_chaserBuffer.Count;
+            if (s_chaserBuffer.Count == 0) return -1;
+
+            // เรียงตามมุมรอบผู้เล่น (atan2) — insertion sort บน buffer เดิม
+            // (list เล็ก ~8 ตัว ไม่ใช้ List.Sort กัน delegate allocation)
+            if (_playerHintValid)
+            {
+                s_chaserAngleBuffer.Clear();
+                for (int i = 0; i < s_chaserBuffer.Count; i++)
+                {
+                    Vector2 offset = (Vector2)s_chaserBuffer[i].position - _playerHint;
+                    s_chaserAngleBuffer.Add(Mathf.Atan2(offset.y, offset.x));
+                }
+
+                for (int i = 1; i < s_chaserBuffer.Count; i++)
+                {
+                    Transform item = s_chaserBuffer[i];
+                    float angle = s_chaserAngleBuffer[i];
+                    int j = i - 1;
+                    while (j >= 0 && s_chaserAngleBuffer[j] > angle)
+                    {
+                        s_chaserBuffer[j + 1] = s_chaserBuffer[j];
+                        s_chaserAngleBuffer[j + 1] = s_chaserAngleBuffer[j];
+                        j--;
+                    }
+                    s_chaserBuffer[j + 1] = item;
+                    s_chaserAngleBuffer[j + 1] = angle;
+                }
+            }
+
+            return s_chaserBuffer.IndexOf(self);
+        }
+
+        /// <summary>
+        /// บันทึกตำแหน่งผู้เล่นที่ทีมเพิ่งรับรู้ (เรียกโดย EnemyBrain ที่เห็นผู้เล่น)
+        /// ใช้ 2 อย่าง: เรียงลำดับ chaser เป็นมุมรอบผู้เล่น + เป็น "Active Contact" สำหรับระบบไปอ้อมดัก
+        /// </summary>
+        public void NotePlayerPosition(Vector2 position)
+        {
+            _playerHint = position;
+            _playerHintValid = true;
+            _contactPos = position;
+            _contactTime = Time.time; // ทุกครั้งที่ตัวไหน "เห็นจริง" = contact ยังสด
+        }
+
+        private Vector2 _contactPos;
+        private float _contactTime = float.NegativeInfinity;
+
+        /// <summary>
+        /// Active Contact = "ตอนนี้มีเพื่อนยังเห็นผู้เล่นอยู่จริงไหม" (อายุ ≤ maxAge วินาที)
+        /// ใช้โดย TacticalDecision/ChaseState: ถ้าใช่ → เพื่อนที่มีความจำรีบไป "อ้อมดัก"
+        /// แทนการค้นจุดเก่า — ผู้เล่นหนีไม่หลุดเพราะมีคนรออยู่ตามทางหนีแล้ว
+        /// </summary>
+        public bool TryGetContact(out Vector2 position, float maxAge = 1.5f)
+        {
+            position = _contactPos;
+            return _playerHintValid && Time.time - _contactTime <= maxAge;
+        }
+
+        /// <summary>
+        /// "ฝ่ายที่ถูกคุกคาม" ประกาศขอความช่วยเหลือ (Call-for-Help)
+        /// ต่างจาก BroadcastAlert ตรงที่ไม่ได้บอกตำแหน่งผู้เล่น แต่บอกว่า "ฉัน/เพื่อนกำลังเดือดร้อน"
+        /// ให้ Tank ตอบสนองได้โดยไม่ต้องเห็นผู้เล่นด้วยตาตัวเอง
+        /// (แก้จุดอ่อนเดิม: HealerThreatened ผูกกับ perception ของ Tank — จำผู้เล่นไม่ได้ = ไม่รู้เรื่องเลย)
+        /// </summary>
+        /// <param name="source">ตัวที่กำลังเดือดร้อน (healer โดนเข้าใกล้ / เพื่อนกำลังหนี)</param>
+        /// <param name="position">ตำแหน่งที่เกิดเหตุ</param>
+        public void BroadcastDistress(Transform source, Vector2 position)
+        {
+            _distressSource = source;
+            _distressPosition = position;
+            _distressTime = Time.time;
+        }
+
+        /// <summary>อ่านสัญญาณขอความช่วยเหลือล่าสุด — คืน false ถ้าหมดอายุ/ตัวส่งตาย/ยังไม่เคยมี</summary>
+        /// <param name="maxAge">อายุสูงสุดที่ยังถือว่าใช้ได้ (วินาที)</param>
+        public bool TryGetRecentDistress(float maxAge, out Transform source, out Vector2 position)
+        {
+            source = _distressSource;
+            position = _distressPosition;
+
+            if (_distressSource == null) return false;              // ไม่เคยมี หรือตัวส่งถูกทำลาย (Unity null)
+            if (Time.time - _distressTime > maxAge) return false;   // หมดอายุ
+            return true;
+        }
+
+        /// <summary>true ถ้ามี Tank (Defensive) ตัวใดกำลังทำ duty คุ้มกัน/สกัดอยู่ — ใช้ให้ Flanker ได้โบนัส "คุมไฟ-ขยับ" (Leapfrog)</summary>
+        public bool HasTankOnDuty()
+        {
+            foreach (var enemy in _activeEnemies)
+            {
+                if (enemy == null) continue;
+                if (!enemy.TryGetComponent(out EnemyBrain brain)) continue;
+                if (brain.Role != EnemyRole.Defensive) continue;
+
+                EnemyState state = brain.GetCurrentState();
+                if (state == EnemyState.ProtectHealer || state == EnemyState.PeelAlly)
+                    return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// แบ่ง "โซนค้นหา" ให้ตัวที่กำลัง Search อยู่ — คืน index ของตัวนี้ในกลุ่มคนค้น
+        /// ใช้กระจายมุมค้นหาของแต่ละตัว (ไม่ค้นทับกันที่จุดเดิมซ้ำ ๆ) — ดู SearchState.StartSearchPattern
+        /// index 0 = ค้นตามทิศทางหนีจริงก่อน, ตัวอื่นกระจายรอบวงตามมุมที่แบ่งไว้
+        /// </summary>
+        public int GetSearchSectorIndex(Transform self, out int totalSearchers)
+        {
+            s_searchBuffer.Clear();
+
+            foreach (var enemy in _activeEnemies)
+            {
+                if (enemy == null) continue;
+                if (!enemy.TryGetComponent(out EnemyBrain brain)) continue;
+                if (brain.GetCurrentState() != EnemyState.Search) continue;
+                s_searchBuffer.Add(enemy);
+            }
+
+            totalSearchers = s_searchBuffer.Count;
+            return s_searchBuffer.IndexOf(self);
+        }
+
+        /// <summary>
+        /// แบ่งปันจุดที่ "เห็นด้วยตาตอนนี้" ให้เพื่อนในระยะ — รายงานต่อเนื่อง (ทุก ~1 วิ)
+        /// ต่างจาก BroadcastAlert ที่ยิงแค่ "ครั้งแรก" — ช่วยให้เพื่อนที่เสียสายตาไปแล้วยังตามต่อได้
+        /// (ข้อมูลประกอบจากเพื่อน: ผู้รับได้ความจำ confidence ~0.8 ไม่ใช่ 1.0 เหมือนสายตาตัวเอง)
+        /// </summary>
+        public void SpotPlayer(Vector2 position, Vector2 direction, Transform source, float radius)
+        {
+            foreach (var enemy in _activeEnemies)
+            {
+                if (enemy == null || enemy == source) continue;
+                if (Vector2.Distance(position, enemy.position) > radius) continue; // ไกลเกินระยะวิทยุ
+
+                if (enemy.TryGetComponent(out EnemyBrain brain))
+                    brain.ReceiveSpotting(position, direction);
+            }
         }
 
         /// <summary>
@@ -185,9 +343,12 @@ namespace TopDownTacticalAI.Tactical
         /// ศัตรูทุกตัวที่อยู่ในระยะได้ยิน (ไม่ว่าจะกำลัง Patrol อยู่เฉยๆ หรือทำอะไรอยู่ก็ตาม) จะไปตรวจสอบจุดนั้น
         /// ต่างจาก BroadcastAlert ตรงที่นี่มาจากการกระทำของ "ผู้เล่นเอง" ไม่ใช่จากเพื่อนศัตรูด้วยกัน
         /// และศัตรูที่ได้ยินไม่รู้ทิศทางที่แน่ชัด (แค่รู้ตำแหน่งที่มาของเสียง) ต่างจากการเห็นตัวจริง
+        ///
+        /// Gradient: แต่ละตัวได้รับ "ความมั่นใจ + เวลาหน่วง" ต่างกันตามระยะจากจุดเกิดเสียง
+        /// (ใกล้ = รู้ทันทีและมั่นใจ, ไกล = ช้าลงและมั่วน้อยลง) — ดู EnemyBrain.ReceiveNoise
         /// </summary>
         /// <param name="noisePosition">ตำแหน่งที่เกิดเสียง</param>
-        /// <param name="noiseRadius">ระยะที่เสียงไปถึง (ยิ่งดัง เช่นเสียงปืน ยิ่งไปไกล)</param>
+        /// <param name="noiseRadius">ระยะที่เสียงไปถึง (ยิ่งดัง เช่นเสียงปืน ยิ่งไปไกล — ใช้คำนวณ gradient ด้วย)</param>
         public void EmitNoise(Vector2 noisePosition, float noiseRadius)
         {
             foreach (var enemy in _activeEnemies)
@@ -197,7 +358,7 @@ namespace TopDownTacticalAI.Tactical
 
                 if (enemy.TryGetComponent(out EnemyBrain brain))
                 {
-                    brain.ReceiveNoise(noisePosition);
+                    brain.ReceiveNoise(noisePosition, noiseRadius);
                 }
             }
         }

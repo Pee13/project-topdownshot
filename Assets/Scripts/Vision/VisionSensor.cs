@@ -16,14 +16,19 @@ namespace TopDownTacticalAI.Vision
         public LayerMask TargetMask;
         public LayerMask ObstacleMask;
 
+        [Header("Peripheral Vision (ทรงกลมรอบตัว)")]
+        [Tooltip("ทรงกลมรอบตัว (360°) รัศมี = ViewRadius × ค่านี้\n" +
+                 "• ยังไม่เคยเจอผู้เล่น → รู้สึก 'อ่อนๆ' ว่ามีคนอยู่ข้างหลัง (ไม่เห็นชัด ยิงไม่ได้)\n" +
+                 "• เจอแล้ว/ความจำยังสด → ทรงกลมทำงาน 'เต็มประสิทธิภาพ' = รู้ตัวทันทีที่มีคนเข้ามาใกล้รอบตัว")]
+        [Range(0.1f, 1f)] public float NearVisionRatio = 0.3f;
+
         [Header("Reference")]
         public Transform EyePoint;
 
-        [Header("Field of View")]
-        [Tooltip("เปิดไว้ = ใช้มุมมองกว้างแบบเดิม (รวมกรวยด้าน up และด้าน right เข้าด้วยกัน " +
-                 "ทำให้มุมที่มองเห็นจริงเป็นราว 2 เท่าของค่า View Angle)\n" +
-                 "ปิด = ใช้กรวยเดียวตามค่า View Angle ตรงๆ (สมจริงกว่า แต่พื้นที่ตรวจจับจะแคบลง)")]
-        public bool LegacyWideVision = false;
+        // ── Vision Stability: ยืนยัน 2 เฟรมติดกันก่อนเปลี่ยนค่า CanSeeTarget (กัน LOS กระพริบที่ขอบกำแพง) ──
+        private const int VisionStableFrames = 2;
+        private bool _lastRawSeen;
+        private int _stableSeenFrames;
 
         private Blackboard _blackboard;
 
@@ -51,27 +56,59 @@ namespace TopDownTacticalAI.Vision
             // มุมระหว่างทิศที่หันหน้า (transform.up) กับทิศไปเป้าหมาย
             float angleToTarget = Vector2.Angle(transform.up, toTarget);
 
-            bool inAngle = LegacyWideVision
-                ? FieldOfView.IsWithinView(transform.up, toTarget, ViewAngle)
-                  || FieldOfView.IsWithinView(transform.right, toTarget, ViewAngle)
-                : angleToTarget <= ViewAngle * 0.5f;
-
+            // กรวยสายตาเดียวตามค่า View Angle ตรงๆ (สมจริง)
+            bool inAngle = angleToTarget <= ViewAngle * 0.5f;
             bool hasLoS = RaycastDetector.HasLineOfSight(origin, target.position, ObstacleMask, ViewRadius);
+            bool coneSeen = inAngle && hasLoS;
 
-            bool canSee = inAngle && hasLoS;
+            // ── Zone 2: ทรงกลมรอบตัว 360° (รัศมีสั้น = ไม่ไกลมาก ตามแบบที่ขอ) ──
+            float nearRadius = ViewRadius * NearVisionRatio;
+            bool inCircle = distance <= nearRadius;
+            bool circleLos = !coneSeen && inCircle
+                && RaycastDetector.HasLineOfSight(origin, target.position, ObstacleMask, distance + 1f);
+
+            // "เจอแล้ว" = ความจำยังสด (เห็นเองเมื่อกี้/เพื่อนแจ้ง/เพิ่งรู้สึกได้) → ทรงกลมทำงานเต็ม
+            bool engaged = _blackboard.HasMemory && _blackboard.MemoryConfidence >= 0.45f;
+            bool circleFullSeen = engaged && inCircle && circleLos;
+
+            // ── Vision Stability (แก้ LOS กระพริบ) ──
+            // ต้องยืนยัน 2 เฟรมติดต่อกันก่อนสลับค่า (รวมทั้งกรวยและทรงกลม)
+            bool rawSeen = coneSeen || circleFullSeen;
+            if (rawSeen == _lastRawSeen)
+            {
+                if (_stableSeenFrames < 100) _stableSeenFrames++;
+            }
+            else
+            {
+                _lastRawSeen = rawSeen;
+                _stableSeenFrames = 0;
+            }
+            bool canSee = _stableSeenFrames >= VisionStableFrames - 1 ? rawSeen : _blackboard.CanSeeTarget;
 
             _blackboard.CanSeeTarget = canSee;
 
             if (!canSee)
             {
-                // อยู่ในรัศมีแต่ถูกกำแพงบัง หรืออยู่นอกกรวยสายตา = มองไม่เห็น
-                ClearSight();
+                ClearSight(); // เคลียร์ก่อน แล้วค่อยตั้ง peripheral ถ้าเข้าเงื่อนไข
+
+                // ── Peripheral (อ่อนๆ): มีคนในทรงกลมรอบตัวแต่ยังเห็นไม่ชัด → รู้สึกตัวแบบอ่อน ──
+                if (inCircle && circleLos)
+                {
+                    _blackboard.PeripheralHit = true;
+                    _blackboard.PeripheralPosition = target.position;
+                    _blackboard.PeripheralDirection = toTarget.sqrMagnitude > 0.0001f ? toTarget.normalized : Vector2.zero;
+                }
                 return;
             }
 
             _blackboard.DistanceToTarget = distance;
             _blackboard.CurrentTarget = target;
-            _blackboard.VisionConfidence = ComputeConfidence(distance, angleToTarget, hasLoS);
+
+            float confidence = ComputeConfidence(distance, angleToTarget, hasLoS);
+            // เห็นจากทรงกลมรอบตัว (ด้านข้าง/หลัง — ไม่ใช่กรวย) → มั่นใจปานกลาง ไม่เต็มแบบเห็นตรงหน้า
+            if (!coneSeen)
+                confidence = Mathf.Max(confidence, Mathf.Clamp01(1f - distance / Mathf.Max(0.01f, nearRadius)) * 0.7f);
+            _blackboard.VisionConfidence = confidence;
         }
 
         /// <summary>
@@ -93,13 +130,16 @@ namespace TopDownTacticalAI.Vision
             return Mathf.Clamp01(distanceFactor * angleFactor * losFactor);
         }
 
-        /// <summary>เคลียร์ข้อมูลการมองเห็นทั้งหมดเมื่อเป้าหมายหลุดสายตา</summary>
+        /// <summary>เคลียร์ข้อมูลการมองเห็นทั้งหมดเมื่อเป้าหมายหลุดสายตา (รวม peripheral)</summary>
         private void ClearSight()
         {
             _blackboard.CanSeeTarget = false;
             _blackboard.VisionConfidence = 0f;
             _blackboard.DistanceToTarget = 0f;
             _blackboard.CurrentTarget = null;
+            _blackboard.PeripheralHit = false;
+            _blackboard.PeripheralDirection = Vector2.zero;
+            _blackboard.PeripheralPosition = Vector2.zero;
         }
     }
 }
