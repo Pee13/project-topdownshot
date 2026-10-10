@@ -50,7 +50,8 @@ namespace TopDownTacticalAI.Search
             {
                 case Phase.LookLeft:
                     _lookTimer.Tick(deltaTime);
-                    CurrentLookAngleOffset = Mathf.Lerp(0f, 60f, _lookTimer.Progress01);
+                    // กวาดจาก 0° (หน้า) หมุนไปจนถึง 180° (หลัง) — ครึ่งวง
+                    CurrentLookAngleOffset = Mathf.Lerp(0f, 180f, _lookTimer.Progress01);
                     if (_lookTimer.IsFinished)
                     {
                         _phase = Phase.LookRight;
@@ -60,7 +61,9 @@ namespace TopDownTacticalAI.Search
 
                 case Phase.LookRight:
                     _lookTimer.Tick(deltaTime);
-                    CurrentLookAngleOffset = Mathf.Lerp(60f, -60f, _lookTimer.Progress01);
+                    // กวาดต่อจาก 180° ย้อนกลับผ่าน 0° (หน้า) ลงไปจนถึง -180° (หลังอีกข้าง)
+                    // = รวมทั้งสองช่วง "ครบรอบ 360 องศา" (ของเดิมกวาดแค่ 0→+60→-60 = ไม่หันลงเลย)
+                    CurrentLookAngleOffset = Mathf.Lerp(180f, -180f, _lookTimer.Progress01);
                     if (_lookTimer.IsFinished)
                     {
                         _phase = Phase.WanderPoint;
@@ -74,7 +77,8 @@ namespace TopDownTacticalAI.Search
 
                 case Phase.LookAtPoint:
                     _lookTimer.Tick(deltaTime);
-                    CurrentLookAngleOffset = Mathf.PingPong(_lookTimer.Progress01 * 2f, 1f) * 50f - 25f;
+                    // หมุนรอบเต็ม 360° หนึ่งรอบทุกจุดที่หยุด (ของเดิมส่ายแค่ ±25° = ไม่เห็นด้านหลัง/ล่าง)
+                    CurrentLookAngleOffset = _lookTimer.Progress01 * 360f - 180f;
                     if (_lookTimer.IsFinished)
                     {
                         _wanderCount++;

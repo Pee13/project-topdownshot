@@ -33,6 +33,7 @@ namespace TopDownTacticalAI.Tactical
                 case EnemyState.Suspicious: return 2;
                 case EnemyState.Search: return 1;
                 case EnemyState.Patrol: return 0;
+                case EnemyState.FollowAlly: return 0; // Healer สถานะพัก — สำคัญเท่า Patrol (ทุกอย่างแทรกได้)
                 default: return 0;
             }
         }

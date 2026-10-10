@@ -17,16 +17,29 @@ namespace TopDownTacticalAI.Memory
         private readonly MemoryTimer _timer = new MemoryTimer();
         public TargetMemory TargetMemoryData { get; } = new TargetMemory();
 
+        // ความมั่นใจ "ตอนบันทึก" — คูณกับการลดลงตามอายุใน ComputeConfidence
+        // ทำให้แหล่งข้อมูลที่ไม่แน่นอน (เช่น เสียงปืนระยะไกล = แค่ "อาจจะอยู่แถวนั้น")
+        // มี MemoryConfidence ต่ำกว่าการเห็นด้วยตาจริง ๆ ตั้งแต่แรก (§50: confidence ทุกแหล่ง)
+        private float _peakConfidence = 1f;
+
         public void Initialize(Blackboard blackboard)
         {
             _blackboard = blackboard;
         }
 
-        public void RecordSighting(Vector2 position, Vector2 direction)
+        /// <summary>
+        /// บันทึกการพบเห็น/ได้ยิน
+        /// </summary>
+        /// <param name="confidence">
+        /// ความมั่นใจ 0..1 ณ ตอนบันทึก — เห็นด้วยตา/เพื่อนแจ้งตำแหน่ง = 1.0,
+        /// เสียงปืนใกล้ = ~1.0, เสียงปืนไกล = ~0.25 (ลดหลั่นตามระยะ — EnemyBrain.ReceiveNoise คำนวณให้)
+        /// </param>
+        public void RecordSighting(Vector2 position, Vector2 direction, float confidence = 1f)
         {
             _blackboard.LastSeen.Record(position, direction, Time.time);
             _blackboard.HasMemory = true;
-            _blackboard.MemoryConfidence = 1f;   // เพิ่งเห็นสดๆ = มั่นใจเต็มที่
+            _peakConfidence = Mathf.Clamp01(confidence);
+            _blackboard.MemoryConfidence = _peakConfidence; // ยิ่งใหม่ยิ่งชัด (คูณกับอายุใน Tick)
             _timer.Start(MemoryDuration);
         }
 
@@ -39,6 +52,7 @@ namespace TopDownTacticalAI.Memory
 
             // ความมั่นใจในความจำลดลงเรื่อยๆ ตามเวลาที่ผ่านไปตั้งแต่เห็นครั้งสุดท้าย
             // ยิ่งนานยิ่งไม่แน่ใจว่าตำแหน่งเดิมยังจริงอยู่ไหม (ข้อมูลเก่า = เชื่อน้อยลง)
+            // คูณด้วย _peakConfidence ด้วย — เสียงไกล ๆ ที่ "อาจจะอยู่แถวนั้น" จะไม่มีทางชัดเท่าการเห็นจริง
             _blackboard.MemoryConfidence = ComputeConfidence();
 
             if (_timer.IsExpired)
@@ -52,6 +66,7 @@ namespace TopDownTacticalAI.Memory
             _blackboard.HasMemory = false;
             _blackboard.MemoryConfidence = 0f;
             _blackboard.LastSeen.Clear();
+            _peakConfidence = 1f; // รอบหน้าเริ่มใหม่ที่ค่าเต็ม
             _timer.Reset();
         }
 
@@ -60,12 +75,12 @@ namespace TopDownTacticalAI.Memory
 
         /// <summary>
         /// ความมั่นใจในข้อมูลที่จำได้ (0..1)
-        /// ลดลงเป็นเส้นตรงตามอายุความจำ — พอครบกำหนด (MemoryDuration) จะเหลือ 0 พอดี
+        /// = ความมั่นใจตอนบันทึก × การลดลงตามอายุความจำ (พอครบ MemoryDuration จะเหลือ 0 พอดี)
         /// </summary>
         private float ComputeConfidence()
         {
             if (MemoryDuration <= 0f) return 0f;
-            return Mathf.Clamp01(1f - (LastSeenAge / MemoryDuration));
+            return Mathf.Clamp01(_peakConfidence * (1f - LastSeenAge / MemoryDuration));
         }
 
         public float MemoryTimeRemaining => _timer.Remaining;

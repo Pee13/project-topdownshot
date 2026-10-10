@@ -83,6 +83,27 @@ namespace TopDownTacticalAI.Memory
         }
 
         /// <summary>
+        /// "พื้นที่ที่ผู้เล่นเดินผ่านล่าสุด" จาก breadcrumb trail —  centroid + รัศมีที่ครอบคลุมจุดทั้งหมด
+        /// ใช้โดย SearchState: ค้นครอบคลุม "ทั้งพื้นที่ที่ผู้เล่นเพิ่งวิ่งผ่าน"
+        /// แทนการมุ่งแค่จุดสุดท้ายที่เห็น (จดจำพื้นที่ ไม่ใช่จุดเดียว — ตามแนวคิด Area Memory)
+        /// </summary>
+        public bool TryGetArea(out Vector2 centroid, out float radius)
+        {
+            centroid = default;
+            radius = 0f;
+            if (_trail.Count < 2) return false;
+
+            Vector2 sum = Vector2.zero;
+            for (int i = 0; i < _trail.Count; i++) sum += _trail[i];
+            centroid = sum / _trail.Count;
+
+            for (int i = 0; i < _trail.Count; i++)
+                radius = Mathf.Max(radius, Vector2.Distance(_trail[i], centroid));
+
+            return radius > 0.01f;
+        }
+
+        /// <summary>
         /// ใส่ข้อมูลทิศทางจาก "เพื่อนที่แจ้งเตือนมา" (Group Alert) เข้าไปแทนประวัติเส้นทางของตัวเอง
         /// ใช้ตอนที่ตัวนี้ยังไม่เคยเห็นผู้เล่นด้วยตาตัวเองเลย แต่ได้รับข้อมูลทิศทางจากเพื่อนที่เห็นมา
         /// ทำให้ตอนเข้าสู่ Search ก็ยังมีทิศทางให้เดาต่อได้ ไม่ใช่มีแค่จุดเดียวโดยไม่รู้ทิศทางเหมือนเดิม

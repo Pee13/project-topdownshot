@@ -218,6 +218,11 @@ namespace TopDownTacticalAI.Tactical
             bool canShoot = RaycastDetector.HasLineOfSight(candidate, playerPos, obstacleMask, distToPlayer + 1f);
             float attackPotential = (canShoot ? 1f : 0f) * 20f;
 
+            // Leapfrog lite (+5) — ขณะที่ Tank กำลังทำหน้าที่บัง/สกัด (คุมไฟ) ให้ flanker เลือกจุด
+            // ที่ "ยิงสนับสนุนได้" มากขึ้น = ครึ่งหนึ่งคุมไฟ ครึ่งหนึ่งขยับ (มาตรฐานทีมจาก Killzone/สเก็ต)
+            if (canShoot && GroupAI.Instance != null && GroupAI.Instance.HasTankOnDuty())
+                attackPotential += 5f;
+
             // Safety (20%) — ห่างผู้เล่นพอควร (ไม่ชิดจนโดนตบ)
             float safety = Mathf.Clamp01(distToPlayer / Mathf.Max(0.01f, searchRadius)) * 20f;
 
@@ -291,6 +296,9 @@ namespace TopDownTacticalAI.Tactical
             return Vector2.Distance(p, a + ab * t);
         }
 
+        // 4 ทิศหลัก — static เพื่อไม่ให้ CountOpenDirections สร้าง array ใหม่ทุกครั้ง (ถูกเรียกหลายครั้งต่อ candidate)
+        private static readonly Vector2[] s_cardinalDirs = { Vector2.up, Vector2.down, Vector2.left, Vector2.right };
+
         /// <summary>
         /// นับจำนวนทิศ (จาก 4 ทิศหลัก) ที่เดินหนีต่อได้โดยไม่ติดกำแพง
         /// ใช้ประเมิน Escape Route (§11/§16) และ Dead End (§7)
@@ -298,7 +306,7 @@ namespace TopDownTacticalAI.Tactical
         private static int CountOpenDirections(Vector2 point, LayerMask obstacleMask, float bodyRadius)
         {
             int open = 0;
-            foreach (var dir in new[] { Vector2.up, Vector2.down, Vector2.left, Vector2.right })
+            foreach (var dir in s_cardinalDirs)
             {
                 if (!PhysicsUtility.IsPositionBlocked(point + dir * (bodyRadius + 0.5f), bodyRadius, obstacleMask))
                     open++;

@@ -38,9 +38,20 @@ namespace TopDownTacticalAI.Core
         public bool IsDodging;
         public Vector2 DodgeDirection;
 
+        // ผลตรวจกระสุนที่ EnemyBrain คำนวณครั้งเดียว (ตาม bulletDetectInterval) แล้วแชร์ให้ทุกคนอ่าน
+        // แทนที่ TacticalDecision/HealAllyState จะเรียก OverlapCircle เองทุกเฟรม (ของเดิม allocate ทุกครั้ง)
+        public bool BulletIncoming;
+        public Vector2 BulletVelocity;
+        public Vector2 BulletPosition;
+
         // บางบทบาทไม่ควรหลบแบบเบี่ยงข้าง (§29) เช่น Tank ที่ต้องยืนบังกระสุนแทนเพื่อน
         // ตั้งค่าจาก Role ใน EnemyBrain.ApplyRolePreset() แล้ว TacticalDecision จะข้ามกิ่ง Dodge ให้เอง
         public bool CanDodge = true;
+
+        // ---- Cover episode cache ----
+        // ตัวจับเวลาทดสอบสแกนหาที่กำบังใหม่ (TacticalDecision ตั้ง, EnemyBrain ลดค่าทุกเฟรม)
+        // กัน CoverScanner ยิง raycast 9 เส้นต่อ candidate ทุกเฟรมระหว่างเดินเข้าที่กำบัง
+        public float CoverScanCooldown;
 
         // ---- Group ----
         public int NearbyAllyCount;
@@ -66,6 +77,13 @@ namespace TopDownTacticalAI.Core
         public float VisionConfidence;      // เขียนโดย VisionSensor — ระยะ/FOV/Line of Sight
         public float MemoryConfidence;      // เขียนโดย EnemyMemory — ลดลงตามเวลาที่ผ่านไป
         public float PredictionConfidence;  // เขียนโดย ChaseState — ความนิ่งของทิศทางเป้าหมาย
+
+        // ---- Peripheral Vision (ทรงกลมรอบตัว — ไวต่อการเดินเข้าข้างหลัง) ----
+        // VisionSensor เขียนทุกเฟรม: true เมื่อมีผู้เล่นอยู่ในรัศมีทรงกลมรอบตัว (360°) และยัง "เห็นไม่ชัด"
+        // ใช้ให้ Suspicious หยุดหันไปจ้องทิศนั้นแบบ "อ่อนๆ" — ไม่ใช่การเห็นเต็มรูปแบบ (ยิงไม่ได้จาก peripheral)
+        public bool PeripheralHit;
+        public Vector2 PeripheralDirection;  // ทิศจากตัวเราไปหาผู้เล่น (ใช้หันหน้า)
+        public Vector2 PeripheralPosition;   // ตำแหน่งผู้เล่น ณ ตอนรู้สึก (ใช้ seed ความจำอ่อนๆ)
 
         // ---- Threat (0..1) ----
         public float ThreatLevel;      // ค่าดิบจาก RiskEvaluation (เขียนใน TacticalDecision)
@@ -103,15 +121,25 @@ namespace TopDownTacticalAI.Core
         public bool HealerThreatened;                   // ผู้เล่นมองเห็น/เข้าใกล้ Healer จนถึงขั้นอันตราย
         public Transform RetreatingAllyTransform;       // เพื่อนที่กำลังถอยและถูกผู้เล่นไล่
         public bool RetreatingAllyUnderThreat;          // มีเพื่อนกำลังถอยและถูกผู้เล่นไล่ตาม
+        public float TankLeashRange = 20f;              // Tank จะทำหน้าที่คุ้มกัน/สกัดเฉพาะเมื่ออยู่ในระยะนี้จาก Healer (กันไล่ข้ามแมพ — ตั้งจาก EnemyBrain.HealerThreatRange)
         public float RetreatHealthThreshold = 0.30f;    // เลือดต่ำกว่านี้ → Retreat (§18)
         public float CriticalRetreatHealthThreshold = 0.15f; // เลือดต่ำกว่านี้ → Critical Retreat (§19)
-        public float HealRange = 25f;                   // ระยะที่ฮีลได้
-        public float HealWorthThreshold = 0.80f;        // ฮีลเฉพาะเพื่อนที่เลือดต่ำกว่านี้ (§16)
+        public float HealRange = 40f;                   // ระยะที่ฮีลได้ (ค่าจริงถูก overwrite จาก EnemyBrain.HealRange)
+        public float AllyAwarenessRadius = 100f;        // Circle Vision ใหญ่ของ Healer (overwrite จาก EnemyBrain) — ระยะรับรู้เพื่อน/คุ้มเดินไปฮีล
+        public float HealWorthThreshold = 0.99f;        // เกือบเต็ม = ไม่ต้องฮีล — ใครก็ได้ที่ยังไม่100% (ค่าจริงถูก overwrite จาก EnemyBrain)
+        /// <summary>
+        /// เกณฑ์ฮีลที่ใช้จริงในเฟรมนี้ (EnemyBrain คำนวณจาก HealWorthThreshold + โบนัสตอนปะทะ)
+        /// สำคัญ: ทั้ง "เข้าสู่ HealAlly" และ "เลือกเป้าฮีล" ต้องใช้ค่านี้ค่าเดียวกัน
+        /// (บั๊ก: เข้า state ด้วยเกณฑ์ 85% แต่เลือกเป้าด้วย 80% → ยืนนิ่งไม่ฮีลใครเลย)
+        /// </summary>
+        public float EffectiveHealWorthThreshold = 0.80f;
         public float TankHealThreshold = 0.80f;         // Tank ต่ำกว่านี้ได้โบนัส Tank-first (§16)
         public float CriticalAllyHealthThreshold = 0.25f; // เกณฑ์ "เพื่อนวิกฤต" (§16)
         public Vector2 PredictedTargetPosition;
         public float CurrentActionScore;    // คะแนนของ Action ที่เลือกในเฟรมนี้
         public string CurrentActionReason;
+        /// <summary>true เมื่อมี AIDebugDisplay ติดอยู่ — state ต่าง ๆ เช็คตัวนี้ก่อนสร้าง string เหตุผล (กัน alloc ตอนไม่มี HUD)</summary>
+        public bool CaptureReasons;
 
         // ---- Determination Score (คะแนนความพยายาม) ----
         // ตัวเลขสะสมที่เพิ่มขึ้นเมื่อ AI ทำสิ่งที่แสดงถึงความ "ตั้งใจ/พยายาม" ไล่ล่าผู้เล่น

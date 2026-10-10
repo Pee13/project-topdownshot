@@ -1,6 +1,7 @@
 using UnityEngine;
 using TopDownTacticalAI.Core;
 using TopDownTacticalAI.Utilities;
+using TopDownTacticalAI.Pathfinding;
 
 namespace TopDownTacticalAI.Patrol
 {
@@ -24,11 +25,12 @@ namespace TopDownTacticalAI.Patrol
         private readonly CountdownTimer _waitTimer = new CountdownTimer();
         private readonly LayerMask _obstacleMask;
         private readonly float _personalSpace;
+        private readonly AgentPathMover _mover;
         private readonly StuckDetector _stuckDetector = new StuckDetector();
 
         private bool _isWaiting;
 
-        public PatrolState(Transform self, Blackboard blackboard, Transform[] waypoints, LayerMask obstacleMask, float moveSpeed = 2f, float waitTime = 2f, float patrolRadius = 8f, int coveragePointCount = 8, float personalSpace = 1.3f)
+        public PatrolState(Transform self, Blackboard blackboard, Transform[] waypoints, LayerMask obstacleMask, float moveSpeed = 2f, float waitTime = 2f, float patrolRadius = 8f, int coveragePointCount = 8, float personalSpace = 1.3f, AgentPathMover mover = null)
         {
             _self = self;
             _blackboard = blackboard;
@@ -36,6 +38,7 @@ namespace TopDownTacticalAI.Patrol
             _waitTime = waitTime;
             _obstacleMask = obstacleMask;
             _personalSpace = personalSpace;
+            _mover = mover;
 
             if (waypoints != null && waypoints.Length > 0)
                 _waypointPatrol = new WaypointPatrol(waypoints, obstacleMask);
@@ -83,13 +86,11 @@ namespace TopDownTacticalAI.Patrol
                 return;
             }
 
-            Vector2 desiredDirection = (destination - currentPos).normalized;
-            Vector2 direction = SteeringMovement.GetSteeredDirection(currentPos, desiredDirection, _obstacleMask, self: _self, personalSpace: _personalSpace);
-
+            // ตรวจว่าติดอยู่กับที่ไหม (ทางตัน/จุดหมายไปไม่ถึง) — ใช้ได้ทั้งโหมด NavMesh และ steering
+            // เช่น waypoint อยู่ในโซนที่ bake ไม่ถึง (partial path) → ข้ามไปจุดถัดไปในลำดับเลย
             _stuckDetector.Tick(currentPos, deltaTime);
             if (_stuckDetector.IsStuck)
             {
-                // จุดหมายเดินไปไม่ถึง (ทางตัน/อยู่หลังกำแพง) ข้ามไปจุดถัดไปในลำดับลาดตระเวนเลย
                 if (useWaypoints)
                     _waypointPatrol.AdvanceToNext();
                 else
@@ -99,14 +100,21 @@ namespace TopDownTacticalAI.Patrol
                 return;
             }
 
-            // เดินแบบ "เช็คก่อนก้าว" — กันมุดกำแพงเหมือน state อื่น (ระบบกลาง SteeringMovement)
-            _self.position = SteeringMovement.MoveWithCollisionCheck(
-                _self, direction * (_moveSpeed * deltaTime), _obstacleMask);
-
-            if (direction.sqrMagnitude > 0.001f)
+            // เดินผ่านระบบนำทาง Hybrid (NavMesh อ้อมกำแพง / steering fallback) — state ไม่เขียน position เอง
+            // ทิศหน้า+การเลี่ยงกำแพง+สไลด์ตอนติด จัดการใน AgentPathMover ที่เดียว
+            if (_mover != null)
+                _mover.MoveTo(destination, deltaTime, _moveSpeed, arriveThreshold: 0.3f);
+            else
             {
-                float angle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg - 90f;
-                _self.rotation = Quaternion.Euler(0, 0, angle);
+                // ปลอดภัย: ถ้าไม่ได้ส่ง mover มา (เช่น unit test) ใช้ steering เดิม
+                Vector2 desiredDirection = (destination - currentPos).normalized;
+                Vector2 direction = SteeringMovement.GetSteeredDirection(currentPos, desiredDirection, _obstacleMask, self: _self, personalSpace: _personalSpace);
+                _self.position = SteeringMovement.MoveWithCollisionCheck(_self, direction * (_moveSpeed * deltaTime), _obstacleMask);
+                if (direction.sqrMagnitude > 0.001f)
+                {
+                    float angle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg - 90f;
+                    _self.rotation = Quaternion.Euler(0, 0, angle);
+                }
             }
         }
 

@@ -160,10 +160,16 @@ namespace TopDownTacticalAI.Tactical
                 // ความปลอดภัยของ healer เองจัดการโดย Critical Override แล้ว (§4 — stay alive ก่อน)
                 case EnemyState.HealAlly:
                     return Normalize(
-                        (bb.WoundedAllyExists ? 0.45f : 0f)
-                        + safety * 0.35f
+                        (bb.WoundedAllyExists ? 0.45f : 0f) + safety * 0.35f
                         + wSelfWorth * 0.20f,
                         0.45f + 0.35f + w.roleImportance * 0.20f);
+
+                // เดินตามเพื่อนเตรียมพร้อมฮีล (§4): สถานะพักของ healer แทนการ Patrol เดินมั่วห่างทีม
+                // คะแนนรองจาก HealAlly เสมอ (precondition คนละใบ) — สูงกว่า Patrol เพื่อให้สลับมาได้จริง
+                case EnemyState.FollowAlly:
+                    return Normalize(
+                        0.40f + safety * 0.35f + wSelfWorth * 0.20f,
+                        0.40f + 0.35f + w.roleImportance * 0.20f);
 
                 // ── Tank (§2/§8/§9/§10/§21) ──
 
@@ -210,6 +216,7 @@ namespace TopDownTacticalAI.Tactical
         /// <param name="proposedState">Action ที่ TacticalDecision เสนอ (ผ่านเงื่อนไขความถูกต้องแล้ว)</param>
         /// <param name="chosenScore">ผลลัพธ์: คะแนนของ Action ที่เลือก</param>
         /// <param name="reasonWhy">ผลลัพธ์: เหตุผลที่เลือก (ใช้แสดง Debug)</param>
+        /// <param name="buildReason">false = ไม่สร้าง string เหตุผล (ไม่มี Debug HUD — ประหยัดค่า allocate ทุกเฟรม)</param>
         /// <returns>Action ที่ควรทำในเฟรมนี้</returns>
         public static EnemyState SelectAction(
             Blackboard bb,
@@ -217,38 +224,44 @@ namespace TopDownTacticalAI.Tactical
             EnemyState currentState,
             EnemyState proposedState,
             out float chosenScore,
-            out string reasonWhy)
+            out string reasonWhy,
+            bool buildReason = true)
         {
             if (w == null) w = new AIScoringWeights();
 
-            float proposedScore = ScoreAction(proposedState, bb, w);
             float currentScore = ScoreAction(currentState, bb, w);
 
             // ─────────────────────────────────────────────────────────
-            // 1) Critical Override — ความอยู่รอดเหนือกว่าแผนปกติเสมอ
-            //
-            //    สำคัญ: ที่นี่ "ระงับ Hysteresis" ไม่ใช่ "บังคับ State เอง"
-            //    เราไม่บังคับ Cover ตรงๆ เพราะถ้าฉากนั้นไม่มี CoverPoint ให้ใช้
-            //    CoverState จะไม่ทำอะไรเลยแล้ว AI จะยืนนิ่ง
-            //    การปล่อยให้ TacticalDecision เป็นคนเลือกแทน ทำให้ได้ State ที่
-            //    "ทำได้จริง" ในสภาพฉากนั้นเสมอ (มันรู้ว่ามีรังให้เข้าไหม)
-            //    เราแค่ไม่ยอมให้ความหนืดของการเปลี่ยนแผนมาขวางในจังหวะวิกฤต
-            // ─────────────────────────────────────────────────────────
-            if (IsCriticalSituation(bb, w) && proposedState != currentState)
-            {
-                chosenScore = proposedScore;
-                reasonWhy = $"⚠ สถานการณ์วิกฤต → ระงับความหนืดของการเปลี่ยนแผน เปลี่ยนเป็น {proposedState} ทันที";
-                return proposedState;
-            }
-
-            // ─────────────────────────────────────────────────────────
-            // 2) Action เดิมถูกต้องอยู่แล้ว — ไม่ต้องคิดมาก
+            // 0) Action เดิมถูกต้องอยู่แล้ว (proposal = state ปัจจุบัน) — ไม่ต้อง score proposal เลย
+            //    เฟรมสงบ (กรณีปกติ) จึงลดจาก 2 ScoreAction เหลือ 1 โดยผลลัพธ์ "เหมือนเดิมเป๊ะ"
+            //    เพราะ critical override/priority/hysteresis ทำงานเฉพาะตอน proposed != current เท่านั้น
             // ─────────────────────────────────────────────────────────
             if (proposedState == currentState)
             {
                 chosenScore = currentScore;
                 reasonWhy = null; // ปล่อยให้ TacticalDecision เป็นคนอธิบายเหตุผล
                 return currentState;
+            }
+
+            float proposedScore = ScoreAction(proposedState, bb, w);
+
+            // ─────────────────────────────────────────────────────────
+            // 1) Critical Override — ความอยู่รอดเหนือกว่าแผนปกติเสมอ
+            //    **จำกัดเฉพาะ "ข้ามไปสถานะเอาชีวิตรอด" เท่านั้น** (Dodge/Retreat/Cover/...)
+            //    ของเดิม critical ปลด hysteresis ให้ "ทุก" state → ตอน HP ต่ำ + LOS กระพริบ
+            //    Chase↔Search สลับรัวเป็นพันครั้ง (พบใน log) — เปลี่ยนไป-มาแบบไม่มีเหตุผล
+            //
+            //    สำคัญ: ที่นี่ "ระงับ Hysteresis" ไม่ใช่ "บังคับ State เอง"
+            //    เราไม่บังคับ Cover ตรงๆ เพราะถ้าฉากนั้นไม่มี CoverPoint ให้ใช้
+            //    CoverState จะไม่ทำอะไรเลยแล้ว AI จะยืนนิ่ง
+            //    การปล่อยให้ TacticalDecision เป็นคนเลือกแทน ทำให้ได้ State ที่
+            //    "ทำได้จริง" ในสภาพฉากนั้นเสมอ (มันรู้ว่ามีรังให้เข้าไหม)
+            // ─────────────────────────────────────────────────────────
+            if (IsCriticalSituation(bb, w) && IsSurvivalState(proposedState))
+            {
+                chosenScore = proposedScore;
+                reasonWhy = buildReason ? $"⚠ สถานการณ์วิกฤต → ระงับความหนืดของการเปลี่ยนแผน เปลี่ยนเป็น {proposedState} ทันที" : null;
+                return proposedState;
             }
 
             // ─────────────────────────────────────────────────────────
@@ -277,9 +290,23 @@ namespace TopDownTacticalAI.Tactical
 
             // ไม่เปลี่ยน — อยู่ในแผนเดิมต่อ
             chosenScore = currentScore;
-            reasonWhy = $"คะแนนต่างไม่พอ ({proposedScore:F2} vs {currentScore:F2} " +
-                        $"— ต้องต่างอย่างน้อย {w.switchThreshold:F2}) → ทำแผนเดิมต่อ";
+            reasonWhy = buildReason
+                ? $"คะแนนต่างไม่พอ ({proposedScore:F2} vs {currentScore:F2} " +
+                  $"— ต้องต่างอย่างน้อย {w.switchThreshold:F2}) → ทำแผนเดิมต่อ"
+                : null;
             return currentState;
+        }
+
+        /// <summary>สถานะกลุ่ม "เอาชีวิตรอด" — เฉพาะกลุ่มนี้ที่ Critical Override และ State Dwell อนุญาตให้ข้ามได้ (public: EnemyBrain ใช้ตอน dwell gate)</summary>
+        public static bool IsSurvivalState(EnemyState s)
+        {
+            return s == EnemyState.Dodge
+                || s == EnemyState.Retreat
+                || s == EnemyState.SeekHeal
+                || s == EnemyState.HealAlly
+                || s == EnemyState.Cover
+                || s == EnemyState.ProtectHealer
+                || s == EnemyState.PeelAlly;
         }
 
         /// <summary>

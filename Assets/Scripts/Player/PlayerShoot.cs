@@ -17,7 +17,9 @@ namespace TopDownTacticalAI.Player
         public float AngleOffset = 0f;
 
         [Header("Sound")]
-        public float GunshotNoiseRadius = 14f;
+        [Tooltip("รัศมีเสียงปืน (หน่วยโลก) — กระสุนดังกระจายเป็นวงกว้าง\n" +
+                 "ศัตรูในรัศมีนี้จะ " + "รับรู้แบบ gradient: ใกล้จุดยิง = รู้ทันที+มั่นใจสูง, ไกล = ช้าลง+มั่วน้อยลง (EnemyBrain.ReceiveNoise)")]
+        public float GunshotNoiseRadius = 60f;
 
         private Camera _cam;
         private float _cooldown;

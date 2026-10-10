@@ -204,13 +204,6 @@ namespace TopDownTacticalAI.Dodge
             _blackboard.CurrentAmmo--;
         }
 
-        /// <summary>ใช้ให้ EnemyBrain เช็คภายนอกว่าควรเข้า State นี้หรือไม่ โดยไม่ต้อง Enter ก่อน</summary>
-        public static bool DetectIncomingThreat(Vector2 origin, LayerMask bulletMask, float detectRadius)
-        {
-            bool incoming = BulletDetector.IsBulletIncoming(origin, detectRadius, bulletMask, out Vector2 bulletVel, out Vector2 bulletPos);
-            return DodgeDecision.ShouldDodge(incoming, origin, bulletPos, bulletVel);
-        }
-
         public void FixedTick(float fixedDeltaTime) { }
 
         public void Exit()

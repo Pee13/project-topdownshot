@@ -83,7 +83,9 @@ Central data store shared by all systems (no direct dependencies between systems
 | `Vision/` | VisionSensor, FieldOfView (cone), RaycastDetector (LoS), TargetDetector |
 | `Memory/` | EnemyMemory (timer), LastSeenData, TargetMemory (breadcrumb trail), MemoryTimer |
 | `Patrol/` | PatrolState, WaypointPatrol, CoveragePatrol (sunflower distribution), IdleLookAround |
-| `Chase/` | ChaseState, ChaseMovement, TargetPrediction, PathFollowing |
+| `Chase/` | ChaseState, TargetPrediction (linear + path-aware), Flanking |
+| `Search/` | SearchState (systematic, returns to center between spokes), SearchPattern, Investigation |
+| `Navigation/` | AgentPathMover (NavMesh + steering seam), NavMesh2DUtility, NavMeshTestAgent |
 | `Search/` | SearchState (systematic, returns to center between spokes), SearchPattern, Investigation |
 | `Combat/` | CombatState, AimController, ShootController, ReloadController, AttackDecision |
 | `Cover/` | CoverState, CoverScanner, CoverPoint, CoverDecision, PeekSystem, RetreatSystem |
@@ -108,9 +110,23 @@ Per design doc Chapter 3.1.2: `Blackboard.PlayerManaLow` biases tactical decisio
 Singleton coordinating multiple enemies:
 - `Register/Unregister` enemies
 - `BroadcastAlert` — when damaged or first sighting, alerts allies within `AlertShoutRadius`
+- `BroadcastDistress` / `TryGetRecentDistress` — call-for-help: threatened allies (healer under fire, ally retreating) announce themselves; Tank responds without needing its own perception of the player
+- `NotePlayerPosition` + `GetActiveChaseIndex` — encirclement ring; counts Chase/Combat/**Flank** and orders members by **angle around the player** (not registration order)
+- `SpotPlayer` / `ReceiveSpotting` — continuous spotting: while one enemy sees the player it reports to allies within `AlertShoutRadius` every ~1s; receivers record memory at **confidence 0.8** (supporting intel, not certain) and skip if they already see it themselves
+- `GetSearchSectorIndex` — divides search sectors so multiple Search states fan out around the ring instead of sweeping the same direction
 - `EmitNoise` — player footsteps/gunshots attract nearby enemies
-- `GetActiveChaseIndex` — assigns flanking roles (index 0 = direct chase, others = flank)
 - `ComputeSeparationPush` — prevents enemies stacking on each other
+- `HasTankOnDuty` — true while a Defensive tank is in Protect/Peel (gives Flanker a small line-of-fire bonus = "leapfrog" cover-and-move)
+
+### Hybrid Movement (Navigation/AgentPathMover.cs)
+
+Long-distance states (**Patrol, Chase, Search, SeekHeal**) route movement through `AgentPathMover.MoveTo(destination, dt, speed)`:
+- Scene has baked NavMesh → `NavMeshAgent` paths around walls (repath every 0.25s or when destination moves >1 unit)
+- No NavMesh / destination off-mesh / agent failure → automatic fallback to `SteeringMovement` (identical to pre-NavMesh behavior); failure guards disable path mode permanently per-enemy with one Thai warning
+- Close-range states (Dodge, Combat backstep, Cover/Flank station, Peel/Protect, HealAlly walk, Retreat) keep writing `transform.position` directly — mover's `OnStateChanged`/`EndFrame` reset the agent so **exactly one system writes transform per frame**
+- While `mover.IsPathActive`, EnemyBrain skips the anti-wall clamps (`ResolveObstacleCollision`/`MapBounds.Clamp`/`EnsureNotInsideObstacle`) — the navmesh was baked from the same walls/bounds
+- Bake scenes via `Tools > NavMesh 2D > Setup + Bake (TEST Scene)` or `(Active Scene)` — `NavMesh2DSetup.cs` builds BoxCollider proxies (NavMeshSurface only sees 3D geometry) and rotates the surface 90° onto the XY plane
+- `TargetPrediction.PredictAlongPath` — path-aware prediction: if the linear lead position is behind a wall, advance along the real NavMesh path instead (used by ChaseState and Search pursuit)
 
 ### Alert Phase (Suspicious State)
 
@@ -167,9 +183,10 @@ Assets/Scripts/
 ├── Core/           # EnemyBrain, StateMachine, Blackboard, IAIState, EnemyState, EnemyRole
 ├── Vision/         # VisionSensor, FieldOfView, RaycastDetector, TargetDetector, VisionDebugger
 ├── Memory/         # EnemyMemory, LastSeenData, TargetMemory, MemoryTimer
-├── Patrol/         # PatrolState, WaypointPatrol, CoveragePatrol, RandomPatrol, IdleLookAround
-├── Chase/          # ChaseState, ChaseMovement, TargetPrediction, PathFollowing
+├── Patrol/         # PatrolState, WaypointPatrol, CoveragePatrol, IdleLookAround
+├── Chase/          # ChaseState, TargetPrediction, Flanking
 ├── Search/         # SearchState, SearchPattern, Investigation, ReturnPatrol
+├── Navigation/     # AgentPathMover, NavMesh2DUtility, NavMeshTestAgent
 ├── Combat/         # CombatState, AimController, ShootController, ReloadController, AttackDecision
 ├── Cover/          # CoverState, CoverScanner, CoverPoint, CoverDecision, PeekSystem, RetreatSystem
 ├── Dodge/          # DodgeState, BulletDetector, DodgeDecision, DodgeMovement, SafePositionFinder
@@ -219,7 +236,9 @@ Edit `TacticalDecision.DecideNextState()` — it's the single decision point wit
 ## Important Notes
 
 - **Thai comments** throughout codebase — variable/method names are English
-- **No Pathfinding integration yet** — `PathFollowing.cs` is simple steering; consider NavMesh2D or A* Pathfinding Project for complex maps
+- **Pathfinding: hybrid NavMesh + steering** — long-distance states use NavMesh via `AgentPathMover` (bake scenes with `Tools > NavMesh 2D`); no baked scene → automatic steering fallback (same behavior as before). Close-range states (dodge/cover/flank/retreat) stay steering. See "Hybrid Movement" above.
+- **Update-rate knobs** (`AIScoringWeights`): `visionInterval`, `threatInterval`, `teamInterval` (default 0 = every frame), `bulletDetectInterval` (default 0.05s), `decisionInterval` (default 0.05s = 20Hz state decisions; off-ticks reuse the cached result — set 0 for per-frame). Keep `visionInterval ≤ 0.1` — `AttackDecision` reuses `CanSeeTarget`'s LOS instead of re-raycasting, so a stale vision tick delays firing LOS by up to that interval.
+- **Reason strings** are only built when an `AIDebugDisplay` is attached before Play (`_captureReasons`) — attach the HUD before pressing Play if you want Thai decision reasons.
 - **No Object Pooling** — `ShootController`/`Bullet` uses `Instantiate`/`Destroy`; add pooling for high fire rates
 - **Death Handling** — `Health.OnDeath` is empty UnityEvent; hook up disable EnemyBrain / play death anim / destroy in Inspector or code
 - **Font Issue** — `AIDebugDisplay` uses IMGUI (OnGUI) with built-in font; Thai may render as boxes. Fix: create GUISkin with Thai font.
