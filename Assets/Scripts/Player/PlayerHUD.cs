@@ -33,16 +33,17 @@ namespace TopDownTacticalAI.UI
         private void Start()
         {
             // ค้นหาผู้เล่นอัตโนมัติ
-            if (PlayerHealth == null)
+            // ค้นหาผู้เล่นอัตโนมัติ — หาเลือดและมานาแยกกัน
+        if (PlayerHealth == null || PlayerManaRef == null)
+        {
+            GameObject player = GameObject.Find("Player 1");
+            if (player == null) player = GameObject.FindWithTag("Player");
+            if (player != null)
             {
-                GameObject player = GameObject.Find("Player 1");
-                if (player == null) player = GameObject.FindWithTag("Player");
-                if (player != null)
-                {
-                    PlayerHealth = player.GetComponent<Health>();
-                    PlayerManaRef = player.GetComponent<PlayerMana>();
-                }
+                if (PlayerHealth == null) PlayerHealth = player.GetComponent<Health>();
+                if (PlayerManaRef == null) PlayerManaRef = player.GetComponent<PlayerMana>();
             }
+        }
 
             if (PlayerHealth != null)
             {

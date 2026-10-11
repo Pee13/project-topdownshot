@@ -67,6 +67,6 @@
         "*.sln": "*.csproj",
         "*.slnx": "*.csproj"
     },
-    "dotnet.defaultSolution": "project-topdownshot-2026-10-05-18-05-30.slnx",
+    "dotnet.defaultSolution": "project-topdownshot-2026-10-05-17-56-21.slnx",
     "dotnet.enableWorkspaceBasedDevelopment": false
 }

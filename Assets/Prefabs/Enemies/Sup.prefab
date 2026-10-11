@@ -1,0 +1,714 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &1804370510458060798
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 4663254765878114989}
+  - component: {fileID: 7189046682685892951}
+  - component: {fileID: 1932971696665350369}
+  - component: {fileID: 856260914627847993}
+  - component: {fileID: 7205301699149300606}
+  - component: {fileID: 5678925893853624204}
+  - component: {fileID: 3601524789575258372}
+  - component: {fileID: 6219483226120426395}
+  - component: {fileID: 5982642738714364682}
+  - component: {fileID: 5583772216555089216}
+  - component: {fileID: 6195166057939291290}
+  - component: {fileID: 8143073096796810907}
+  - component: {fileID: 7694939248050309157}
+  - component: {fileID: 7038481124143642130}
+  m_Layer: 0
+  m_Name: Sup
+  m_TagString: Enemy
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &4663254765878114989
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1804370510458060798}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 43.8, y: 146.5, z: 0}
+  m_LocalScale: {x: 4, y: 4, z: 10}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 6010857049859201530}
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!212 &7189046682685892951
+SpriteRenderer:
+  serializedVersion: 2
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1804370510458060798}
+  m_Enabled: 1
+  m_CastShadows: 0
+  m_ReceiveShadows: 0
+  m_DynamicOccludee: 1
+  m_StaticShadowCaster: 0
+  m_MotionVectors: 1
+  m_LightProbeUsage: 1
+  m_ReflectionProbeUsage: 1
+  m_RayTracingMode: 0
+  m_RayTraceProcedural: 0
+  m_RayTracingAccelStructBuildFlagsOverride: 0
+  m_RayTracingAccelStructBuildFlags: 1
+  m_SmallMeshCulling: 1
+  m_ForceMeshLod: -1
+  m_MeshLodSelectionBias: 0
+  m_RenderingLayerMask: 1
+  m_RendererPriority: 0
+  m_Materials:
+  - {fileID: 2100000, guid: a97c105638bdf8b4a8650670310a4cd3, type: 2}
+  m_StaticBatchInfo:
+    firstSubMesh: 0
+    subMeshCount: 0
+  m_StaticBatchRoot: {fileID: 0}
+  m_ProbeAnchor: {fileID: 0}
+  m_LightProbeVolumeOverride: {fileID: 0}
+  m_ScaleInLightmap: 1
+  m_ReceiveGI: 1
+  m_PreserveUVs: 0
+  m_IgnoreNormalsForChartDetection: 0
+  m_ImportantGI: 0
+  m_StitchLightmapSeams: 1
+  m_SelectedEditorRenderState: 0
+  m_MinimumChartSize: 4
+  m_AutoUVMaxDistance: 0.5
+  m_AutoUVMaxAngle: 89
+  m_LightmapParameters: {fileID: 0}
+  m_GlobalIlluminationMeshLod: 0
+  m_SortingLayerID: 0
+  m_SortingLayer: 0
+  m_SortingOrder: 3
+  m_MaskInteraction: 0
+  m_Sprite: {fileID: 21300000, guid: 7e6d67ccdc2ca6a448b9aa06cd5692ba, type: 3}
+  m_Color: {r: 0.12997827, g: 0.9137255, b: 0, a: 1}
+  m_FlipX: 1
+  m_FlipY: 0
+  m_DrawMode: 0
+  m_Size: {x: 2.64, y: 1.82}
+  m_AdaptiveModeThreshold: 0.5
+  m_SpriteTileMode: 0
+  m_WasSpriteAssigned: 1
+  m_SpriteSortPoint: 0
+--- !u!114 &1932971696665350369
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1804370510458060798}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 24876349657b43d41b21ffd547e2aeae, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TopDownTacticalAI.Core.EnemyBrain
+  Role: 5
+  PatrolWaypoints: []
+  EyePoint: {fileID: 4663254765878114989}
+  MuzzlePoint: {fileID: 4663254765878114989}
+  BulletPrefab: {fileID: 0}
+  TargetMask:
+    serializedVersion: 2
+    m_Bits: 64
+  ObstacleMask:
+    serializedVersion: 2
+    m_Bits: 256
+  CoverMask:
+    serializedVersion: 2
+    m_Bits: 256
+  PlayerBulletMask:
+    serializedVersion: 2
+    m_Bits: 128
+  ViewRadius: 200
+  ViewAngle: 90
+  PatrolSpeed: 40
+  PatrolRadius: 69
+  PatrolPointCount: 100
+  AutoSizePatrolFromMap: 1
+  ChaseSpeed: 40
+  FlankRadius: 40
+  PersonalSpace: 20
+  SearchSpeed: 40
+  SearchWanderRadius: 40
+  CoverMoveSpeed: 60
+  MaxAttackRange: 15
+  PreferredMinRange: 10
+  FireRate: 4
+  ReloadDuration: 1.8
+  MaxAmmo: 12
+  DangerRange: 10
+  CoverSearchRadius: 40
+  DodgeDetectRadius: 10
+  DodgeSpeed: 50
+  DodgeDistance: 4
+  MemoryDuration: 25
+  SearchPursuitOvershoot: 50
+  MaxAlertDuration: 99
+  AlertShoutRadius: 100
+  AlertWholeTeam: 1
+  PlayerManaRef: {fileID: 0}
+  SafetySearchRadius: 6
+  InfluenceCellSize: 0.75
+  AttackUtilityBonus: 30
+  RetreatHealthThreshold: 0.3
+  CriticalRetreatHealthThreshold: 0.15
+  HealWorthThreshold: 0.99
+  TankHealThreshold: 0.8
+  CriticalAllyHealthThreshold: 0.25
+  HealRange: 40
+  HealPerSecond: 20
+  RetreatSpeed: 3
+  ProtectionDistance: 4
+  PositionSearchRadius: 6
+  HealerThreatRange: 20
+  HealerLeashRange: 60
+  AllyAwarenessRadius: 100
+  PeelAllyHpThreshold: 0.4
+  HealBeam: {fileID: 6219483226120426395}
+  ScoringWeights:
+    healthNeed: 0.35
+    criticalBonus: 0.2
+    roleImportance: 0.15
+    threatImportance: 0.1
+    visibility: 0.1
+    accessibility: 0.1
+    healthPriorityCurve:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
+        time: 0
+        value: 1
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 0.2
+        value: 0.9
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 0.4
+        value: 0.65
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 0.6
+        value: 0.3
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 0.8
+        value: 0.1
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 1
+        value: 0
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+    criticalThreshold: 0.35
+    positionCover: 0.2
+    positionVisibility: 0.2
+    positionDistance: 0.15
+    positionThreat: 0.15
+    positionEscape: 0.15
+    positionRole: 0.1
+    positionTeam: 0.05
+    switchThreshold: 0.1
+    threatSmoothingSpeed: 3
+    criticalThreatOverride: 0.85
+    criticalHealthOverride: 0.15
+    minViableScore: 0.25
+    minPredictionTime: 0.1
+    maxPredictionTime: 2
+    estimatedTravelSpeed: 4
+    visionInterval: 0
+    threatInterval: 0
+    teamInterval: 0
+    bulletDetectInterval: 0.05
+    decisionInterval: 0.05
+  SuspicionBuildTime: 1.2
+  SuspicionDecayTime: 2
+  ObstacleSkinWidth: 0.03
+  MaxObstaclePushPerFrame: 0.5
+--- !u!114 &856260914627847993
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1804370510458060798}
+  m_Enabled: 0
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 07f4ae5251c82ed46af904f75a1f47af, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TopDownTacticalAI.DebugTools.AIDebugDisplay
+  ShowDebugHUD: 1
+  CompactMode: 0
+  ShowScoringMetrics: 1
+  ScreenOffset: {x: 0, y: -60}
+  FontSize: 20
+--- !u!114 &7205301699149300606
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1804370510458060798}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 72c2e13e2d1ed1c43a5777db74b08b2e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TopDownTacticalAI.DebugTools.AIPathVisualizer
+  ShowDestinationLine: 1
+  ShowTrail: 1
+  DestinationLineWidth: 0.08
+  MaxTrailPoints: 40
+  MinPointSpacing: 0.15
+  TrailLineWidth: 0.05
+--- !u!50 &5678925893853624204
+Rigidbody2D:
+  serializedVersion: 5
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1804370510458060798}
+  m_BodyType: 1
+  m_Simulated: 1
+  m_UseFullKinematicContacts: 0
+  m_UseAutoMass: 0
+  m_Mass: 1
+  m_LinearDamping: 0
+  m_AngularDamping: 0.05
+  m_GravityScale: 1
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_Interpolate: 0
+  m_SleepingMode: 1
+  m_CollisionDetection: 0
+  m_Constraints: 4
+--- !u!114 &3601524789575258372
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1804370510458060798}
+  m_Enabled: 0
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3d8b92e29dea2104fa03da9a8548aa45, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::EnemyAI
+  fovAngle: 80
+  fovRange: 120
+  peripheralRange: 120
+  fovRayCount: 14
+  canSeePlayer: 0
+  rawCanSeePlayer: 0
+  distToPlayer: 0
+  useNavMesh: 0
+  wallLayer:
+    serializedVersion: 2
+    m_Bits: 256
+  bulletLayer:
+    serializedVersion: 2
+    m_Bits: 128
+  cellSize: 20
+  gridRadius: 14
+  dangerDecayRate: 0.8
+  safetyBonus: 100
+  attackBonus: 60
+  lowManaThreshold: 30
+  allyCourageRadius: 120
+  minAlliesForCourage: 2
+  aggressiveSpeedMultiplier: 1
+  weightDanger: 1
+  weightSafety: 1
+  weightAttack: 0.8
+  weightDistance: 0.5
+  fleeRadius: 300
+  kiteMinDist: 250
+  kiteMaxDist: 400
+  aggressRadius: 150
+  maxSpeed: 0
+  rotationSpeed: 0
+  steeringForce: 0
+  waypoints: []
+  waypointReachDistance: 14
+  waypointWaitTime: 0.6
+  waypointTimeout: 6
+  bulletPrefab: {fileID: 0}
+  firePoint: {fileID: 0}
+  fireCooldown: 1.1
+  bulletSpeed: 400
+  attackDamage: 10
+  aimInaccuracy: 12
+  predictionTime: 0.2
+  maxHealth: 100
+  lowHealthRatio: 0.35
+  coverSearchRadius: 200
+  coverReachDistance: 18
+  peekInterval: 2.2
+  peekDuration: 0.75
+  squad: {fileID: 0}
+  broadcastAlertOnSight: 1
+  sightPersistenceDuration: 1
+  pathCornerMargin: 120
+  pathRecalcInterval: 0.25
+  pathStickBonus: 0.7
+  noWaypointWanderRadius: 100
+  useSquadCoverage: 1
+  searchOvershootDistance: 160
+  searchMaxDuration: 6
+  trailRecordInterval: 0.3
+  trailMaxPoints: 6
+  wallHugDistance: 50
+  searchSweepPoints: 3
+  alertRushSpeedMultiplier: 1.4
+  searchWalkSpeedMultiplier: 0.5
+  searchLookDuration: 1.2
+  searchLookSweepAngle: 70
+  assumedPlayerSpeed: 5
+  minSearchDistance: 60
+  maxSearchDistance: 400
+  velocityDirectionWeight: 0.7
+  squadSearchSpreadAngle: 50
+  showInfluenceGrid: 1
+  currentBehaviorState: 0
+  lastKnownPos: {x: 0, y: 0}
+  lastKnownVel: {x: 0, y: 0}
+  hasLastKnown: 0
+  bestCell: {x: 0, y: 0}
+--- !u!120 &6219483226120426395
+LineRenderer:
+  serializedVersion: 3
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1804370510458060798}
+  m_Enabled: 1
+  m_CastShadows: 1
+  m_ReceiveShadows: 1
+  m_DynamicOccludee: 1
+  m_StaticShadowCaster: 0
+  m_MotionVectors: 0
+  m_LightProbeUsage: 0
+  m_ReflectionProbeUsage: 0
+  m_RayTracingMode: 0
+  m_RayTraceProcedural: 0
+  m_RayTracingAccelStructBuildFlagsOverride: 0
+  m_RayTracingAccelStructBuildFlags: 1
+  m_SmallMeshCulling: 1
+  m_ForceMeshLod: -1
+  m_MeshLodSelectionBias: 0
+  m_RenderingLayerMask: 1
+  m_RendererPriority: 0
+  m_Materials:
+  - {fileID: 10754, guid: 0000000000000000f000000000000000, type: 0}
+  m_StaticBatchInfo:
+    firstSubMesh: 0
+    subMeshCount: 0
+  m_StaticBatchRoot: {fileID: 0}
+  m_ProbeAnchor: {fileID: 0}
+  m_LightProbeVolumeOverride: {fileID: 0}
+  m_ScaleInLightmap: 1
+  m_ReceiveGI: 1
+  m_PreserveUVs: 0
+  m_IgnoreNormalsForChartDetection: 0
+  m_ImportantGI: 0
+  m_StitchLightmapSeams: 1
+  m_SelectedEditorRenderState: 3
+  m_MinimumChartSize: 4
+  m_AutoUVMaxDistance: 0.5
+  m_AutoUVMaxAngle: 89
+  m_LightmapParameters: {fileID: 0}
+  m_GlobalIlluminationMeshLod: 0
+  m_SortingLayerID: 0
+  m_SortingLayer: 0
+  m_SortingOrder: 40
+  m_MaskInteraction: 0
+  m_Positions:
+  - {x: 0, y: 0, z: 0}
+  - {x: 0, y: 0, z: 1}
+  m_Parameters:
+    serializedVersion: 3
+    widthMultiplier: 0.5003243
+    widthCurve:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
+        time: 0
+        value: 1
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0.33333334
+        outWeight: 0.33333334
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+    colorGradient:
+      serializedVersion: 2
+      key0: {r: 0.61960137, g: 1, b: 0.3443396, a: 1}
+      key1: {r: 1, g: 1, b: 1, a: 1}
+      key2: {r: 0, g: 0, b: 0, a: 0}
+      key3: {r: 0, g: 0, b: 0, a: 0}
+      key4: {r: 0, g: 0, b: 0, a: 0}
+      key5: {r: 0, g: 0, b: 0, a: 0}
+      key6: {r: 0, g: 0, b: 0, a: 0}
+      key7: {r: 0, g: 0, b: 0, a: 0}
+      ctime0: 0
+      ctime1: 65535
+      ctime2: 0
+      ctime3: 0
+      ctime4: 0
+      ctime5: 0
+      ctime6: 0
+      ctime7: 0
+      atime0: 0
+      atime1: 65535
+      atime2: 0
+      atime3: 0
+      atime4: 0
+      atime5: 0
+      atime6: 0
+      atime7: 0
+      m_Mode: 0
+      m_ColorSpace: 0
+      m_NumColorKeys: 2
+      m_NumAlphaKeys: 2
+    numCornerVertices: 0
+    numCapVertices: 0
+    alignment: 0
+    textureMode: 0
+    textureScale: {x: 1, y: 1}
+    shadowBias: 0.5
+    generateLightingData: 0
+  m_UseWorldSpace: 1
+  m_Loop: 0
+  m_ApplyActiveColorSpace: 1
+--- !u!114 &5982642738714364682
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1804370510458060798}
+  m_Enabled: 0
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fd3f1ab2c31f4704bb7dc79eef988c8d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TopDownTacticalAI.Enemy.SupportAI
+  ControlMovement: 1
+  FollowDistance: 60
+  FleeDistance: 100
+  MoveSpeed: 60
+  RotationSpeed: 360
+  ViewRadius: 45
+  ObstacleMask:
+    serializedVersion: 2
+    m_Bits: 256
+  HealRange: 25
+  HealPerSecond: 20
+  HealBeam: {fileID: 0}
+--- !u!114 &5583772216555089216
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1804370510458060798}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ddc63e5b4c0c07d4ea3757cad859adbf, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TopDownTacticalAI.Player.Health
+  MaxHP: 200
+  DestroyOnDeath: 1
+  applyDifficultyScaling: 1
+  objectTag: Enemy
+  OnDeath:
+    m_PersistentCalls:
+      m_Calls: []
+  OnDamaged:
+    m_PersistentCalls:
+      m_Calls: []
+  OnHealed:
+    m_PersistentCalls:
+      m_Calls: []
+--- !u!58 &6195166057939291290
+CircleCollider2D:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1804370510458060798}
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Density: 1
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_ForceSendLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_ForceReceiveLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_ContactCaptureLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_CallbackLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_IsTrigger: 0
+  m_UsedByEffector: 0
+  m_CompositeOperation: 0
+  m_CompositeOrder: 0
+  m_Offset: {x: 0, y: 0}
+  m_Radius: 0.55
+--- !u!195 &8143073096796810907
+NavMeshAgent:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1804370510458060798}
+  m_Enabled: 1
+  m_AgentTypeID: -1923039037
+  m_Radius: 0.91
+  m_Speed: 3.5
+  m_Acceleration: 8
+  avoidancePriority: 50
+  m_AngularSpeed: 120
+  m_StoppingDistance: 0
+  m_AutoTraverseOffMeshLink: 1
+  m_AutoBraking: 1
+  m_AutoRepath: 1
+  m_Height: 3.03
+  m_BaseOffset: 1.515
+  m_WalkableMask: 4294967295
+  m_ObstacleAvoidanceType: 4
+--- !u!114 &7694939248050309157
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1804370510458060798}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2f93d6ace72f6374fb971241a79bc331, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TopDownTacticalAI.Vision.VisionSensor
+  ViewRadius: 100
+  ViewAngle: 160
+  TargetMask:
+    serializedVersion: 2
+    m_Bits: 0
+  ObstacleMask:
+    serializedVersion: 2
+    m_Bits: 0
+  NearVisionRatio: 0.3
+  EyePoint: {fileID: 0}
+--- !u!114 &7038481124143642130
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1804370510458060798}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a0d9743411308cf4eba88739d8f06432, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TopDownTacticalAI.DebugTools.VisionRangeDebugDisplay
+  ShowVisionCone: 1
+  LineWidth: 1
+  ArcResolution: 20
+  NormalColor: {r: 1, g: 1, b: 0.2, a: 0.5}
+  SeeingTargetColor: {r: 1, g: 0.15, b: 0.15, a: 0.85}
+--- !u!1 &6908549358587814896
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 6010857049859201530}
+  m_Layer: 0
+  m_Name: GameObject
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &6010857049859201530
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6908549358587814896}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: -0.03, y: 0.62, z: 0}
+  m_LocalScale: {x: 0.099999994, y: 0.099999994, z: 0.099999994}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 4663254765878114989}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
