@@ -32,11 +32,14 @@ namespace TopDownTacticalAI.Combat
         {
             if (!CanShoot || BulletPrefab == null || MuzzlePoint == null) return;
 
-            GameObject bulletObj = Object.Instantiate(BulletPrefab, MuzzlePoint.position, Quaternion.identity);
-            if (bulletObj.TryGetComponent(out Rigidbody2D rb))
-            {
-                rb.linearVelocity = direction.normalized * 12f;
-            }
+            // หมุนกระสุนให้ "ด้านบน" ของมันชี้ไปทางเป้า (Bullet.cs พุ่งตาม transform.up)
+            Vector2 dir = direction.normalized;
+            float angle = Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg - 90f;
+            GameObject bulletObj = Object.Instantiate(BulletPrefab, MuzzlePoint.position, Quaternion.Euler(0f, 0f, angle));
+
+            // บังคับเป็นกระสุนศัตรู: โดนผู้เล่นได้ ไม่โดนศัตรูด้วยกัน
+            if (bulletObj.TryGetComponent(out TopDownTacticalAI.Player.Bullet bullet))
+                bullet.IsEnemyBullet = true;
 
             _cooldown = 1f / _fireRate;
         }

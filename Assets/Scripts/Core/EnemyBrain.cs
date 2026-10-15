@@ -66,6 +66,8 @@ namespace TopDownTacticalAI.Core
 
         [Header("Combat Settings")]
         public float MaxAttackRange = 6f;
+        [Tooltip("ตัวคูณระยะของ Role preset ให้เข้ากับสเกลแมพ (แมพเล็ก = 1, แมพเราลองที่ 12)")]
+        public float RoleRangeScale = 1f;
         public float PreferredMinRange = 2.5f;
         public float FireRate = 2f;
         public float ReloadDuration = 1.8f;
@@ -347,10 +349,18 @@ namespace TopDownTacticalAI.Core
                     _canDodge = true;
                     break;
 
-                case EnemyRole.Custom:
+                                case EnemyRole.Custom:
                 default:
                     _canDodge = true; // Custom ใช้ค่า default ทั้งหมด รวมถึงการ dodge
                     break; // ไม่ปรับอะไร ใช้ค่าที่ตั้งเองทั้งหมด
+            }
+
+            // ปรับระยะของ preset ให้เข้ากับสเกลแมพ (preset เขียนไว้สำหรับแมพสเกลเล็ก)
+            if (Role != EnemyRole.Custom)
+            {
+                MaxAttackRange    *= RoleRangeScale;
+                PreferredMinRange *= RoleRangeScale;
+                DangerRange       *= RoleRangeScale;
             }
         }
 

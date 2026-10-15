@@ -39,11 +39,14 @@ namespace TopDownTacticalAI.Patrol
             _obstacleMask = obstacleMask;
             _personalSpace = personalSpace;
             _mover = mover;
-
-            if (waypoints != null && waypoints.Length > 0)
-                _waypointPatrol = new WaypointPatrol(waypoints, obstacleMask);
-            else
-                _coveragePatrol = new CoveragePatrol(self.position, patrolRadius, obstacleMask, coveragePointCount);
+            // กรองช่องที่ว่าง/ลิงก์ขาดทิ้ง — ไม่เหลือเลยค่อยเดินวนรอบจุดเกิดแทน
+        Transform[] validWaypoints = waypoints == null ? null : System.Array.FindAll(waypoints, w => w != null);
+        if (waypoints != null && validWaypoints.Length < waypoints.Length)
+            Debug.LogWarning($"[Patrol] {self.name}: จุดลาดตระเวนว่าง {waypoints.Length - validWaypoints.Length} ช่อง — ข้ามไป", self);
+        if (validWaypoints != null && validWaypoints.Length > 0)
+            _waypointPatrol = new WaypointPatrol(validWaypoints, obstacleMask);
+        else
+            _coveragePatrol = new CoveragePatrol(self.position, patrolRadius, obstacleMask, coveragePointCount);
         }
 
         public void Enter()

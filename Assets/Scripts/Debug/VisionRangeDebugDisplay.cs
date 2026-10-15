@@ -105,7 +105,9 @@ namespace TopDownTacticalAI.DebugTools
                 float t = (float)i / ArcResolution;
                 float angle = Mathf.Lerp(-halfAngle, halfAngle, t);
                 Vector3 dir = Quaternion.Euler(0, 0, angle) * forward;
-                points[i + 1] = origin + dir * _vision.ViewRadius;
+                // ยิงเส้นตรวจกำแพงทีละซี่ — ชนกำแพงตรงไหน กรวยหยุดตรงนั้น (ภาพตรงกับการมองจริง)
+                RaycastHit2D hit = Physics2D.Raycast(origin, dir, _vision.ViewRadius, _vision.ObstacleMask);
+                points[i + 1] = hit.collider != null ? (Vector3)hit.point : origin + dir * _vision.ViewRadius;
             }
 
             points[totalPoints - 1] = origin;

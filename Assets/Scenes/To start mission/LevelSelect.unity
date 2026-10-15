@@ -129,7 +129,7 @@ GameObject:
   m_Component:
   - component: {fileID: 212136016}
   - component: {fileID: 212136015}
-  - component: {fileID: 212136014}
+  - component: {fileID: 212136017}
   m_Layer: 0
   m_Name: EventSystem
   m_TagString: Untagged
@@ -137,26 +137,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &212136014
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 212136013}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 4f231c4fb786f3946a6b90b886c48677, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.EventSystems.StandaloneInputModule
-  m_SendPointerHoverToParent: 1
-  m_HorizontalAxis: Horizontal
-  m_VerticalAxis: Vertical
-  m_SubmitButton: Submit
-  m_CancelButton: Cancel
-  m_InputActionsPerSecond: 10
-  m_RepeatDelay: 0.5
-  m_ForceModuleActive: 0
 --- !u!114 &212136015
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -187,6 +167,37 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &212136017
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 212136013}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 01614664b831546d2ae94a42149d80ac, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.InputSystem::UnityEngine.InputSystem.UI.InputSystemUIInputModule
+  m_SendPointerHoverToParent: 1
+  m_MoveRepeatDelay: 0.5
+  m_MoveRepeatRate: 0.1
+  m_XRTrackingOrigin: {fileID: 0}
+  m_ActionsAsset: {fileID: -944628639613478452, guid: ca9f5fa95ffab41fb9a615ab714db018, type: 3}
+  m_PointAction: {fileID: -1654692200621890270, guid: ca9f5fa95ffab41fb9a615ab714db018, type: 3}
+  m_MoveAction: {fileID: -8784545083839296357, guid: ca9f5fa95ffab41fb9a615ab714db018, type: 3}
+  m_SubmitAction: {fileID: 392368643174621059, guid: ca9f5fa95ffab41fb9a615ab714db018, type: 3}
+  m_CancelAction: {fileID: 7727032971491509709, guid: ca9f5fa95ffab41fb9a615ab714db018, type: 3}
+  m_LeftClickAction: {fileID: 3001919216989983466, guid: ca9f5fa95ffab41fb9a615ab714db018, type: 3}
+  m_MiddleClickAction: {fileID: -2185481485913320682, guid: ca9f5fa95ffab41fb9a615ab714db018, type: 3}
+  m_RightClickAction: {fileID: -4090225696740746782, guid: ca9f5fa95ffab41fb9a615ab714db018, type: 3}
+  m_ScrollWheelAction: {fileID: 6240969308177333660, guid: ca9f5fa95ffab41fb9a615ab714db018, type: 3}
+  m_TrackedDevicePositionAction: {fileID: 6564999863303420839, guid: ca9f5fa95ffab41fb9a615ab714db018, type: 3}
+  m_TrackedDeviceOrientationAction: {fileID: 7970375526676320489, guid: ca9f5fa95ffab41fb9a615ab714db018, type: 3}
+  m_DeselectOnBackgroundClick: 1
+  m_PointerBehavior: 0
+  m_CursorLockBehavior: 0
+  m_ScrollDeltaPerTick: 6
 --- !u!1 &260400335
 GameObject:
   m_ObjectHideFlags: 0
@@ -520,6 +531,79 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 464392358}
   m_CullTransparentMesh: 1
+--- !u!1 &469968972
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 469968974}
+  - component: {fileID: 469968973}
+  m_Layer: 0
+  m_Name: ScreenTransition
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &469968973
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 469968972}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 30845046816775840b6c8dfe679b1564, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TopDownTacticalAI.UI.Animation.ScreenTransition
+  _fadeImage: {fileID: 0}
+  _blurImage: {fileID: 0}
+  _canvasGroup: {fileID: 0}
+  _defaultFadeDuration: 0.5
+  _fadeColor: {r: 0, g: 0, b: 0, a: 1}
+  _fadeCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+--- !u!4 &469968974
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 469968972}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 1455.1254, y: 272.59302, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &582589444
 GameObject:
   m_ObjectHideFlags: 0
@@ -706,20 +790,31 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::TopDownTacticalAI.UI.LevelSelectController
   theme: {fileID: 0}
+  themeManager: {fileID: 0}
+  progressManager: {fileID: 0}
   backgroundImage: {fileID: 0}
   backgroundImageComponent: {fileID: 1006661209}
+  titleText: {fileID: 0}
+  progressText: {fileID: 0}
+  backButton: {fileID: 1103349155}
   levelButtonPrefab: {fileID: 7673885211839590809, guid: d7fd44dae26fbe344af5822bd0be4dfd, type: 3}
   levelButtonContainer: {fileID: 766114600}
+  difficultyEasyButton: {fileID: 1191936034}
+  difficultyNormalButton: {fileID: 382711134}
+  difficultyHardButton: {fileID: 1630699657}
+  difficultyLabel: {fileID: 1682273219}
+  startMissionButton: {fileID: 9000000005}
+  startMissionLabel: {fileID: 0}
   levels:
   - levelName: Stage 01
-    sceneName: Level1
+    sceneName: Map_Level1
     previewImage: {fileID: 0}
     lockedImage: {fileID: 0}
     clearedImage: {fileID: 0}
     isUnlocked: 1
     description: STAGE 1 MAP
   - levelName: Stage 02
-    sceneName: Level2
+    sceneName: Map_Level2
     previewImage: {fileID: 0}
     lockedImage: {fileID: 0}
     clearedImage: {fileID: 0}
@@ -739,17 +834,12 @@ MonoBehaviour:
     clearedImage: {fileID: 0}
     isUnlocked: 0
     description: STAGE 4 MAP
-  difficultyEasyButton: {fileID: 1191936034}
-  difficultyNormalButton: {fileID: 382711134}
-  difficultyHardButton: {fileID: 1630699657}
-  difficultyLabel: {fileID: 1682273219}
-  difficultyStars: []
-  backButton: {fileID: 1103349155}
-  mainMenuSceneName: MainMenu
   levelSelectPanel: {fileID: 1153486120}
   buttonClickSound: {fileID: 0}
   levelSelectSound: {fileID: 0}
   difficultyChangeSound: {fileID: 0}
+  musicPlaylist: {fileID: 11400000, guid: 28bd29709a9c8eb429258b9761182153, type: 2}
+  mainMenuSceneName: MainMenu
 --- !u!114 &770412366
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2552,7 +2642,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: "START MISSION"
+  m_text: START MISSION
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
@@ -2689,7 +2779,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: "0 / 4 CLEARED"
+  m_text: 0 / 4 CLEARED
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
@@ -2869,3 +2959,4 @@ SceneRoots:
   - {fileID: 1752827047}
   - {fileID: 770412369}
   - {fileID: 212136016}
+  - {fileID: 469968974}
