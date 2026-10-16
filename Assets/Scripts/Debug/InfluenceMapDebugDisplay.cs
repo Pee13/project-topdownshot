@@ -51,7 +51,7 @@ namespace TopDownTacticalAI.DebugTools
             Collider2D[] bullets = Physics2D.OverlapCircleAll(transform.position, DangerDetectRadius, BulletMask);
             foreach (var b in bullets)
             {
-                dangerSources.Add(new InfluenceMap.DangerSource(b.transform.position, 3f, 100f));
+                dangerSources.Add(new InfluenceMap.DangerSource(b.transform.position, 3f * CellSize, 100f));
             }
 
             Vector2 origin = transform.position;
