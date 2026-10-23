@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Text.RegularExpressions;
 using UnityEngine;
 using TopDownTacticalAI.Core;
 
@@ -25,6 +26,14 @@ namespace TopDownTacticalAI.DebugTools
         public bool ShowScoringMetrics = false;
 
         [Header("Style")]
+        [Tooltip("ขนาดการ์ดโดยรวม (1 = ตามค่าเดิม) — การ์ดย่อ/ขยายตามความสูงจอให้อัตโนมัติด้วย เล็กลงตอนจอเล็ก")]
+        [Range(0.4f, 1.5f)] public float UIScale = 0.75f;
+        [Tooltip("ความสูงจออ้างอิง — ที่ความสูงนี้ UIScale = 1 จะได้ขนาดตาม FontSize/BoxWidth พอดี")]
+        public float ReferenceHeight = 1080f;
+        [Tooltip("ตัดข้อความ 'คิด:' ที่ยาวเกินจำนวนตัวอักษรนี้ (0 = ไม่ตัด)")]
+        public int MaxReasonChars = 70;
+        [Tooltip("ซ่อนการ์ดตอนหน้า Game Over / Victory / หยุดเกม")]
+        public bool HideOnEndScreen = true;
         public Vector2 ScreenOffset = new Vector2(0f, -40f);
         [Tooltip("ขนาดตัวอักษรหลัก (แนะนำ 16–18 ที่ Game view 1920x1080)")]
         public int FontSize = 16;
@@ -41,6 +50,10 @@ namespace TopDownTacticalAI.DebugTools
         private static readonly List<Rect> _placedThisFrame = new List<Rect>();
         private static int _placedFrame = -1;
         private static Texture2D _white;
+        private static TopDownTacticalAI.UI.PlayerHUD _hud;
+        private static float _nextHudSearch;
+        // ตัดวงเล็บภาษาอังกฤษท้ายเหตุผล เช่น (HEAL_ALLY) (Active Contact) ให้การ์ดสั้นลง
+        private static readonly Regex EnglishTag = new Regex(@"\s*\([A-Za-z _]+\)");
 
         private static readonly Dictionary<EnemyState, Color> StateColors = new Dictionary<EnemyState, Color>
         {
@@ -117,10 +130,24 @@ namespace TopDownTacticalAI.DebugTools
             }
         }
 
+        private static bool EndScreenShowing()
+        {
+            if (Time.timeScale == 0f) return true; // หยุดเกม / เมนูพัก
+            if (_hud == null && Time.unscaledTime >= _nextHudSearch) // หาใหม่ไม่เกินวินาทีละครั้ง (รองรับโหลดฉากใหม่)
+            {
+                _hud = Object.FindFirstObjectByType<TopDownTacticalAI.UI.PlayerHUD>();
+                _nextHudSearch = Time.unscaledTime + 1f;
+            }
+            if (_hud == null) return false;
+            return (_hud.GameOverPanel != null && _hud.GameOverPanel.activeInHierarchy)
+                || (_hud.VictoryPanel != null && _hud.VictoryPanel.activeInHierarchy);
+        }
+
         private void OnGUI()
         {
             if (!ShowDebugHUD || _brain == null) return;
             if (Event.current.type != EventType.Repaint) return; // วาดอย่างเดียว ไม่รับคลิก
+            if (HideOnEndScreen && EndScreenShowing()) return;
 
             Camera cam = Camera.main;
             if (cam == null) return;
@@ -138,24 +165,29 @@ namespace TopDownTacticalAI.DebugTools
             Color stateColor = StateColors.TryGetValue(info.State, out Color c) ? c : Color.white;
             string stateName = StateThaiNames.TryGetValue(info.State, out string n) ? n : info.State.ToString();
 
-            float k = Mathf.Max(0.5f, FontSize / 16f);
+            // ขนาดตามความสูงจอ: Game view เล็ก → การ์ดเล็กตาม ไม่บังจอ
+            float screenScale = Mathf.Max(0.3f, UIScale * Screen.height / Mathf.Max(1f, ReferenceHeight));
+            int fs = Mathf.Max(9, Mathf.RoundToInt(FontSize * screenScale));
+            float k = fs / 16f;
             float width = CompactMode ? 170f * k : BoxWidth * k;
             float pad = 8f * k;
             float gap = 3f * k;
             float strip = 5f * k;
             float innerW = width - pad * 2f - strip;
 
-            var headStyle = new GUIStyle(GUI.skin.label) { fontSize = FontSize, fontStyle = FontStyle.Bold, richText = true, wordWrap = false };
+            var headStyle = new GUIStyle(GUI.skin.label) { fontSize = fs, fontStyle = FontStyle.Bold, richText = true, wordWrap = false };
             headStyle.normal.textColor = Color.white;
-            var bodyStyle = new GUIStyle(GUI.skin.label) { fontSize = Mathf.RoundToInt(FontSize * 0.85f), wordWrap = true };
+            var bodyStyle = new GUIStyle(GUI.skin.label) { fontSize = Mathf.Max(8, Mathf.RoundToInt(fs * 0.85f)), wordWrap = true };
             bodyStyle.normal.textColor = new Color(0.92f, 0.94f, 0.97f);
-            var smallStyle = new GUIStyle(bodyStyle) { fontSize = Mathf.RoundToInt(FontSize * 0.75f) };
+            var smallStyle = new GUIStyle(bodyStyle) { fontSize = Mathf.Max(8, Mathf.RoundToInt(fs * 0.75f)) };
             smallStyle.normal.textColor = new Color(0.7f, 0.76f, 0.82f);
 
             string stateHex = ColorUtility.ToHtmlStringRGB(stateColor);
-            var header = new GUIContent($"<size={Mathf.RoundToInt(FontSize * 0.75f)}>{RoleLabel()}</size>  <color=#{stateHex}>{stateName}</color>");
+            var header = new GUIContent($"<size={Mathf.Max(8, Mathf.RoundToInt(fs * 0.75f))}>{RoleLabel()}</size>  <color=#{stateHex}>{stateName}</color>");
 
-            string reason = string.IsNullOrEmpty(info.Reason) ? "-" : info.Reason;
+            string reason = string.IsNullOrEmpty(info.Reason) ? "-" : EnglishTag.Replace(info.Reason, "").Trim();
+            if (MaxReasonChars > 0 && reason.Length > MaxReasonChars)
+                reason = reason.Substring(0, MaxReasonChars).TrimEnd() + "…";
             var reasonContent = new GUIContent("คิด: " + reason);
 
             string sight = info.CanSeeTarget
@@ -212,6 +244,18 @@ namespace TopDownTacticalAI.DebugTools
             // กันหลุดขอบจอ
             rect.x = Mathf.Clamp(rect.x, 4f, Mathf.Max(4f, Screen.width - rect.width - 4f));
             rect.y = Mathf.Clamp(rect.y, 4f, Mathf.Max(4f, Screen.height - rect.height - 4f));
+
+            // ดันขึ้นจนชนขอบจอแล้วยังทับ → เลื่อนไปด้านข้างแทน (ขวาก่อน ไม่พอค่อยซ้าย)
+            if (AvoidOverlap)
+            {
+                foreach (Rect other in _placedThisFrame)
+                {
+                    if (!rect.Overlaps(other)) continue;
+                    float right = other.xMax + 4f * k;
+                    float left = other.xMin - rect.width - 4f * k;
+                    rect.x = right + rect.width <= Screen.width - 4f ? right : Mathf.Max(4f, left);
+                }
+            }
             _placedThisFrame.Add(rect);
 
             // ── วาดการ์ด ──

@@ -18,6 +18,13 @@ namespace TopDownTacticalAI.Core
         public LastSeenData LastSeen = new LastSeenData();
         public bool HasMemory;
 
+        // ---- Pursuit Grace: คลาดสายตาแล้วยังไล่ต่ออีกครู่ (เหมือนได้ยินเสียงฝีเท้า) ----
+        public Transform PursuitTarget;          // ผู้เล่นตัวที่เพิ่งไล่อยู่
+        public float LostSightTime = -999f;      // Time.time ตอนเพิ่งคลาดสายตา
+        public float PursuitGraceTime = 3f;      // ค่าจริงตั้งจาก EnemyBrain.PursuitGraceTime
+        public bool InPursuitGrace => PursuitTarget != null && !CanSeeTarget
+                                      && Time.time - LostSightTime <= PursuitGraceTime;
+
         // ---- Combat ----
         public int CurrentAmmo;
         public int MaxAmmo = 12;

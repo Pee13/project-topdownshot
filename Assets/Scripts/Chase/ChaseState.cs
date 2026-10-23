@@ -50,6 +50,20 @@ namespace TopDownTacticalAI.Chase
         {
             if (_blackboard.CurrentTarget == null)
             {
+                // ── Pursuit Grace: คลาดสายตาไม่เกิน N วินาที → ไล่ตำแหน่งจริงต่อ และอัปเดตจุดล่าสุดให้ Search ใช้ต่อ ──
+                if (_blackboard.InPursuitGrace)
+                {
+                    Vector2 chasePos = _blackboard.PursuitTarget.position;
+                    _targetMemory.Update(chasePos, deltaTime);
+                    _blackboard.LastSeen.Record(chasePos, _targetMemory.GetSmoothedDirection(), Time.time);
+
+                    Vector2 graceDest = GetDestinationWithFlanking(chasePos);
+                    _blackboard.CurrentDestination = graceDest;
+                    _mover?.MoveTo(graceDest, deltaTime, _moveSpeed, arriveThreshold: 0.5f);
+                    FaceTowards(chasePos, deltaTime);   // หันกรวยสายตาไปทางผู้เล่น จะได้เห็นอีกครั้งเร็วขึ้น
+                    return;
+                }
+
                 // ── Intercept mode: ยังไม่เห็นผู้เล่นเอง แต่ "เพื่อนกำลังเห็นอยู่" (Active Contact) ──
                 // วิ่งไปตำแหน่งที่เพื่อนเจอ + จัดวงล้อมตามทิศหนี — ปิดทางหนีแทนการไปค้นจุดเก่า
                 if (GroupAI.Instance != null

@@ -29,7 +29,7 @@ namespace TopDownTacticalAI.UI
         private float _enemyCheckTimer = 0.2f;
         private bool _playerInitialized = false;
         private bool _isGameOver = false;
-
+        private bool _sawEnemies = false; // เคยเจอศัตรูในฉากแล้วหรือยัง (ศัตรูถูก Destroy ตอนตาย)
         private void Start()
         {
             // ค้นหาผู้เล่นอัตโนมัติ
@@ -99,7 +99,7 @@ namespace TopDownTacticalAI.UI
 
         private void UpdateEnemyCount()
         {
-            GameObject[] enemies = GameObject.FindGameObjectsWithTag("Enemy");
+            GameObject[] enemies = GameObject.FindGameObjectsWithTag("Enemy"); if (enemies.Length > 0) _sawEnemies = true;
             int aliveCount = 0;
 
             foreach (var e in enemies)
@@ -120,8 +120,9 @@ namespace TopDownTacticalAI.UI
                     EnemyCountText.text = $"Enemies: {aliveCount}";
                 }
 
-                if (aliveCount == 0 && enemies.Length > 0 && VictoryPanel != null && !VictoryPanel.activeSelf && !_isGameOver)
+                if (aliveCount == 0 && _sawEnemies && VictoryPanel != null && !VictoryPanel.activeSelf && !_isGameOver)
                 {
+                    Debug.Log("[PlayerHUD] ศัตรูหมดแล้ว → เปิด VictoryPanel");
                     VictoryPanel.SetActive(true);
                 }
             }

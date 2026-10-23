@@ -142,6 +142,14 @@ namespace TopDownTacticalAI.Tactical
                     return EnemyState.FollowAlly;
                 }
 
+                // ── Pursuit Grace: เพิ่งคลาดสายตา (หรือเพิ่งโดนยิงจากด้านหลัง) → ไล่ต่ออีกครู่ ──
+                if (blackboard.InPursuitGrace)
+                {
+                    float left = blackboard.PursuitGraceTime - (Time.time - blackboard.LostSightTime);
+                    reason = buildReason ? $"เพิ่งคลาดสายตา → ไล่ต่ออีก {Mathf.Max(0f, left):F1}s ก่อนค้นหา" : null;
+                    return EnemyState.Chase;
+                }
+
                 // ── Intercept (ระบบอ้อมดักแบบใหม่): เพื่อนยัง "เห็นผู้เล่นอยู่จริง" ตอนนี้ ──
                 // → ไม่ต้องไปค้นจุดเก่า รีบไปตำแหน่งที่เพื่อนเจอ + จัดวงล้อมปิดทางหนีทันที
                 // (คนแรกเห็น → ทุกตัวที่มีความจำเข้าโหมดอ้อมดัก = ผู้เล่นหนีไม่หลุด)

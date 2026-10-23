@@ -89,6 +89,13 @@ namespace TopDownTacticalAI.Vision
 
             if (!canSee)
             {
+                // เพิ่งคลาดสายตาเฟรมนี้ → เริ่มนับเวลาไล่ต่อ (Pursuit Grace)
+                if (_blackboard.CurrentTarget != null)
+                {
+                    _blackboard.PursuitTarget = _blackboard.CurrentTarget;
+                    _blackboard.LostSightTime = Time.time;
+                }
+
                 ClearSight(); // เคลียร์ก่อน แล้วค่อยตั้ง peripheral ถ้าเข้าเงื่อนไข
 
                 // ── Peripheral (อ่อนๆ): มีคนในทรงกลมรอบตัวแต่ยังเห็นไม่ชัด → รู้สึกตัวแบบอ่อน ──

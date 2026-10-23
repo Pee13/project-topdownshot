@@ -87,6 +87,9 @@ namespace TopDownTacticalAI.Core
         public float MemoryDuration = 30f;
         [Tooltip("ระยะที่จะ 'วิ่งไล่ต่อ' ตามทิศทางที่ผู้เล่นกำลังวิ่งอยู่ตอนเสียสายตา ก่อนเริ่มค้นหาแบบละเอียด")]
         public float SearchPursuitOvershoot = 5f;
+        [Tooltip("คลาดสายตาผู้เล่นแล้ว ยังไล่ตามตำแหน่งจริงต่ออีกกี่วินาที ก่อนเปลี่ยนไปค้นหา (0 = ปิด)\n" +
+                 "เหมือนยังได้ยินเสียงฝีเท้า — ผู้เล่นหลบหลังกำแพงแป๊บเดียวจะหนีไม่หลุด")]
+        public float PursuitGraceTime = 3f;
         [Tooltip("เวลาสูงสุด (วินาที) ที่ยอมให้อยู่ในโหมดตื่นตัว/ค้นหาต่อเนื่อง ก่อนยอมแพ้แล้วกลับไปเฝ้าจุดเดิม (เหมือนโหมด Alert ใน Metal Gear Solid)")]
         public float MaxAlertDuration = 99f;
 
@@ -472,6 +475,7 @@ namespace TopDownTacticalAI.Core
             _memory = gameObject.GetComponent<EnemyMemory>();
             if (_memory == null) _memory = gameObject.AddComponent<EnemyMemory>();
             _memory.MemoryDuration = MemoryDuration;
+            _blackboard.PursuitGraceTime = PursuitGraceTime;
             _memory.Initialize(_blackboard);
 
             // Combat helpers
@@ -645,6 +649,13 @@ namespace TopDownTacticalAI.Core
             _memory.TargetMemoryData.SeedFromExternalIntel(playerPos, directionToPlayer);
             _blackboard.IsTargetConfirmed = true;                    // โดนยิงแล้วเห็นผู้เล่น → ปะทะได้เลย
             _blackboard.DeterminationScore += 20;                    // โดนแล้วยังไม่ถอย → ยิ่งตั้งใจ
+
+            // โดนยิงจากมุมที่มองไม่เห็น → หันไปล่าผู้เล่นทันทีช่วงสั้นๆ (Pursuit Grace) แทนการเดินไปค้นจุดเฉยๆ
+            if (_playerTransform != null && !_blackboard.CanSeeTarget)
+            {
+                _blackboard.PursuitTarget = _playerTransform;
+                _blackboard.LostSightTime = Time.time;
+            }
 
             // ── 3) แชร์ตำแหน่งผู้เล่นแบบแม่นยำให้เพื่อนทั้งทีม ──
             // AlertWholeTeam = true → ทีมรู้หมดไม่ว่าอยู่ไกลแค่ไหน
