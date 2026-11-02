@@ -84,7 +84,7 @@ namespace TopDownTacticalAI.UI
             if (pausePanel != null)
             {
                 _neonVFX = pausePanel.GetComponent<NeonMenuVFX>();
-                if (_neonVFX == null) _neonVFX = pausePanel.gameObject.AddComponent<NeonMenuVFX>();
+                
             }
 
             // Initially hide all panels

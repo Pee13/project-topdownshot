@@ -13,7 +13,7 @@ GameObject:
   - component: {fileID: 6288739540816675870}
   - component: {fileID: 9096951569286964976}
   m_Layer: 5
-  m_Name: Button (1)
+  m_Name: OpenSetting
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -144,6 +144,7 @@ GameObject:
   - component: {fileID: 3173375066707139103}
   - component: {fileID: 5700105310667561073}
   - component: {fileID: 2044792302845007797}
+  - component: {fileID: 3648080012811232262}
   m_Layer: 5
   m_Name: PausePanel
   m_TagString: Untagged
@@ -212,6 +213,24 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
+--- !u!114 &3648080012811232262
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 145088408874771341}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0b74d642249e05844a2d42c08be7e759, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TopDownTacticalAI.UI.Animation.AnimatedPanel
+  _slideDirection: 2
+  _slideDistance: 300
+  _animateOnEnable: 1
+  _animateOnDisable: 1
+  _canvasGroup: {fileID: 0}
+  _rectTransform: {fileID: 0}
 --- !u!1 &1961394630267371200
 GameObject:
   m_ObjectHideFlags: 0
@@ -225,7 +244,7 @@ GameObject:
   - component: {fileID: 7726779079416114853}
   - component: {fileID: 4131111503330245508}
   m_Layer: 5
-  m_Name: Button
+  m_Name: Resume
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -769,7 +788,7 @@ GameObject:
   - component: {fileID: 1424761788391543301}
   - component: {fileID: 8792389068568852114}
   m_Layer: 5
-  m_Name: Button (2)
+  m_Name: RestartLevel
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -902,7 +921,7 @@ GameObject:
   - component: {fileID: 4389329598605042608}
   - component: {fileID: 6962386248653287834}
   m_Layer: 5
-  m_Name: Button (3)
+  m_Name: ReturnToMainMenu
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

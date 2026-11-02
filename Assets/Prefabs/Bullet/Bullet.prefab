@@ -107,7 +107,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::TopDownTacticalAI.Player.Bullet
   IsEnemyBullet: 0
-  Speed: 150
+  Speed: 200
   Damage: 50
   LifeTime: 3
   StickDuration: 5

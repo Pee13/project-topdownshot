@@ -28,9 +28,20 @@ namespace TopDownTacticalAI.UI.Animation
         private Vector2 _hiddenPosition;
         private Coroutine _currentAnimation;
         private bool _isVisible = false;
+        private bool _initialized = false;
 
+        // ตัวควบคุม (เช่น PauseMenu) อาจเรียก HideInstant()/Show() ก่อนที่ Awake ของแผงนี้จะได้รัน
+        // (ลำดับ Awake ระหว่าง object ไม่แน่นอน) → เตรียมค่าทุกอย่างตอนถูกเรียกครั้งแรกแทน กัน NullReferenceException
         private void Awake()
         {
+            EnsureInit();
+        }
+
+        private void EnsureInit()
+        {
+            if (_initialized) return;
+            _initialized = true;
+
             // Ensure CanvasGroup component exists and is properly initialized
             // Always use GetComponent — if the serialized field is null OR points to a different instance,
             // fall back to the one on this GameObject (and add one if needed). This is required because
@@ -95,6 +106,7 @@ namespace TopDownTacticalAI.UI.Animation
         /// <summary>Show the panel with animation.</summary>
         public void Show(float duration = -1f, AnimationCurve curve = null, System.Action onComplete = null)
         {
+            EnsureInit();
             if (_isVisible) { onComplete?.Invoke(); return; }
             _isVisible = true;
             gameObject.SetActive(true);
@@ -106,6 +118,7 @@ namespace TopDownTacticalAI.UI.Animation
         /// <summary>Hide the panel with animation (or instantly if _animateOnDisable is false).</summary>
         public void Hide(float duration = -1f, AnimationCurve curve = null, System.Action onComplete = null)
         {
+            EnsureInit();
             if (!_isVisible) { onComplete?.Invoke(); return; }
             _isVisible = false;
 
@@ -123,6 +136,7 @@ namespace TopDownTacticalAI.UI.Animation
         /// <summary>Show instantly with no animation.</summary>
         public void ShowInstant()
         {
+            EnsureInit();
             _isVisible = true;
             gameObject.SetActive(true);
             _canvasGroup.alpha = 1f;
@@ -134,6 +148,7 @@ namespace TopDownTacticalAI.UI.Animation
         /// <summary>Hide instantly with no animation.</summary>
         public void HideInstant()
         {
+            EnsureInit();
             _isVisible = false;
             _canvasGroup.alpha = 0f;
             _canvasGroup.interactable = false;
