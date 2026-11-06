@@ -818,7 +818,7 @@ MonoBehaviour:
     previewImage: {fileID: 0}
     lockedImage: {fileID: 0}
     clearedImage: {fileID: 0}
-    isUnlocked: 1
+    isUnlocked: 0
     description: STAGE 2 MAP
   - levelName: Stage 03
     sceneName: Level3

@@ -112,6 +112,7 @@ GameObject:
   - component: {fileID: 3973543286254452268}
   - component: {fileID: 1945141133910773366}
   - component: {fileID: 2670938191954242162}
+  - component: {fileID: 8916718281725458928}
   m_Layer: 0
   m_Name: Tank
   m_TagString: Enemy
@@ -127,7 +128,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2104282487408454982}
   serializedVersion: 2
-  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 2.9, y: 144.5, z: 0}
   m_LocalScale: {x: 5, y: 5, z: 10}
   m_ConstrainProportionsScale: 0
@@ -220,30 +221,31 @@ MonoBehaviour:
     m_Bits: 64
   ObstacleMask:
     serializedVersion: 2
-    m_Bits: 256
+    m_Bits: 4352
   CoverMask:
     serializedVersion: 2
     m_Bits: 256
   PlayerBulletMask:
     serializedVersion: 2
     m_Bits: 128
-  ViewRadius: 200
+  ViewRadius: 150
   ViewAngle: 90
-  PatrolSpeed: 40
-  PatrolRadius: 69
+  PatrolSpeed: 50
+  PatrolRadius: 150
   PatrolPointCount: 100
   AutoSizePatrolFromMap: 1
-  ChaseSpeed: 60
-  FlankRadius: 40
+  ChaseSpeed: 80
+  FlankRadius: 0
   PersonalSpace: 20
   SearchSpeed: 40
   SearchWanderRadius: 40
   CoverMoveSpeed: 60
-  MaxAttackRange: 100
+  MaxAttackRange: 70
+  RoleRangeScale: 12
   PreferredMinRange: 10
-  FireRate: 4
-  ReloadDuration: 1.8
-  MaxAmmo: 12
+  FireRate: 10
+  ReloadDuration: 6
+  MaxAmmo: 20
   DangerRange: 40
   CoverSearchRadius: 40
   DodgeDetectRadius: 50
@@ -251,24 +253,25 @@ MonoBehaviour:
   DodgeDistance: 40
   MemoryDuration: 30
   SearchPursuitOvershoot: 50
-  MaxAlertDuration: 99
-  AlertShoutRadius: 100
+  PursuitGraceTime: 3
+  MaxAlertDuration: 30
+  AlertShoutRadius: 500
   AlertWholeTeam: 1
   PlayerManaRef: {fileID: 0}
-  SafetySearchRadius: 6
-  InfluenceCellSize: 0.75
+  SafetySearchRadius: 100
+  InfluenceCellSize: 12
   AttackUtilityBonus: 30
-  RetreatHealthThreshold: 0.3
+  RetreatHealthThreshold: 0.35
   CriticalRetreatHealthThreshold: 0.15
   HealWorthThreshold: 0.99
   TankHealThreshold: 0.8
   CriticalAllyHealthThreshold: 0.25
-  HealRange: 40
-  HealPerSecond: 20
-  RetreatSpeed: 3
-  ProtectionDistance: 4
-  PositionSearchRadius: 6
-  HealerThreatRange: 20
+  HealRange: 0
+  HealPerSecond: 0
+  RetreatSpeed: 70
+  ProtectionDistance: 70
+  PositionSearchRadius: 100
+  HealerThreatRange: 240
   HealerLeashRange: 60
   AllyAwarenessRadius: 100
   PeelAllyHpThreshold: 0.4
@@ -372,16 +375,23 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2104282487408454982}
-  m_Enabled: 0
+  m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 07f4ae5251c82ed46af904f75a1f47af, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::TopDownTacticalAI.DebugTools.AIDebugDisplay
   ShowDebugHUD: 1
   CompactMode: 0
-  ShowScoringMetrics: 1
+  ShowScoringMetrics: 0
+  UIScale: 0.75
+  ReferenceHeight: 1080
+  MaxReasonChars: 70
+  HideOnEndScreen: 1
   ScreenOffset: {x: 0, y: -60}
-  FontSize: 20
+  FontSize: 16
+  BoxWidth: 200
+  BackgroundAlpha: 0.85
+  AvoidOverlap: 1
 --- !u!114 &3003386457501657376
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -534,7 +544,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ddc63e5b4c0c07d4ea3757cad859adbf, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::TopDownTacticalAI.Player.Health
-  MaxHP: 700
+  MaxHP: 300
   DestroyOnDeath: 1
   applyDifficultyScaling: 1
   objectTag: Enemy
@@ -596,15 +606,15 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::TopDownTacticalAI.DebugTools.InfluenceMapDebugDisplay
   ShowHeatmap: 1
-  SearchRadius: 60
-  CellSize: 6
+  SearchRadius: 100
+  CellSize: 12
   ObstacleMask:
     serializedVersion: 2
-    m_Bits: 256
+    m_Bits: 4352
   BulletMask:
     serializedVersion: 2
     m_Bits: 128
-  DangerDetectRadius: 40
+  DangerDetectRadius: 96
   DangerColor: {r: 1, g: 0, b: 0, a: 0.5}
   SafetyColor: {r: 0, g: 1, b: 0, a: 0.35}
   NeutralColor: {r: 1, g: 1, b: 1, a: 0.05}
@@ -666,11 +676,30 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a0d9743411308cf4eba88739d8f06432, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::TopDownTacticalAI.DebugTools.VisionRangeDebugDisplay
-  ShowVisionCone: 1
+  ShowVisionCone: 0
   LineWidth: 1
-  ArcResolution: 20
+  ArcResolution: 60
   NormalColor: {r: 1, g: 1, b: 0.2, a: 0.5}
   SeeingTargetColor: {r: 1, g: 0.15, b: 0.15, a: 0.85}
+--- !u!114 &8916718281725458928
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2104282487408454982}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e0523cd470789284fa8d97779a9efdc4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TopDownTacticalAI.Alert.AlertIconDisplay
+  AutoOffset: 1
+  Offset: {x: 0, y: 5, z: 0}
+  TargetHeight: 22
+  FontSize: 32
+  WorldScale: 0.4
+  AutoSize: 1
+  ConfirmedIconDuration: 1
 --- !u!1 &6407592369223863602
 GameObject:
   m_ObjectHideFlags: 0
